@@ -12,7 +12,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-zinc-950 px-5 py-10 text-zinc-100">
+    <main className="grid min-h-screen place-items-center bg-[#7386f5] px-4 py-10 sm:px-6">
       <LoginForm />
     </main>
   );

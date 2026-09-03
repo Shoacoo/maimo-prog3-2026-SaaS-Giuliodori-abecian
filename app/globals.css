@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-sans: var(--font-rubik), Arial, Helvetica, sans-serif;
   --font-mono: var(--font-geist-mono), "SFMono-Regular", Consolas, monospace;
 }
 
@@ -16,7 +16,7 @@
     overflow-x: hidden;
     background: #05070a;
     color: #e6edf3;
-    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+    font-family: var(--font-rubik), Arial, Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
