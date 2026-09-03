@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "mapbox-gl/dist/mapbox-gl.css";
 
 @theme {
   --font-sans: var(--font-rubik), Arial, Helvetica, sans-serif;
