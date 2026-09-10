@@ -1,17 +1,11 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 
 const TripPillContext = createContext({ trip: null, setTrip: () => {} });
 
 export function TripPillProvider({ children }) {
   const [trip, setTrip] = useState(null);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setTrip(null);
-  }, [pathname]);
 
   return (
     <TripPillContext.Provider value={{ trip, setTrip }}>{children}</TripPillContext.Provider>

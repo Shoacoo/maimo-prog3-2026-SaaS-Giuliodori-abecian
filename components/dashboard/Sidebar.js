@@ -10,23 +10,23 @@ const NAV_SECTIONS = [
     label: "Resumen",
     children: [
       { label: "Mis viajes", href: "/dashboard/trips" },
-      { label: "Lugares para visitar", href: "/dashboard/proximamente" },
-      { label: "Notas", href: "/dashboard/proximamente" },
-      { label: "Notas", href: "/dashboard/proximamente" },
+      { label: "Lugares para visitar", href: "/dashboard/proximamente", requiresTrip: true },
+      { label: "Notas", href: "/dashboard/proximamente", requiresTrip: true },
+      { label: "Notas", href: "/dashboard/proximamente", requiresTrip: true },
     ],
   },
   {
     id: "itinerario",
     label: "Itinerario",
     children: [
-      { label: "Calendario", href: "/dashboard/proximamente" },
-      { label: "Lugares para visitar", href: "/dashboard/proximamente" },
+      { label: "Calendario", href: "/dashboard/proximamente", requiresTrip: true },
+      { label: "Lugares para visitar", href: "/dashboard/proximamente", requiresTrip: true },
     ],
   },
   {
     id: "presupuesto",
     label: "Presupuesto",
-    children: [{ label: "Gastos", href: "/dashboard/proximamente" }],
+    children: [{ label: "Gastos", href: "/dashboard/proximamente", requiresTrip: true }],
   },
 ];
 
@@ -75,8 +75,8 @@ export default function Sidebar({ userLabel, logoutAction }) {
 
   return (
     <aside
-      className={`flex shrink-0 flex-col border-r border-gray-100 bg-white transition-[width] duration-200 ${
-        isOpen ? "w-72" : "w-16"
+      className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-gray-100 bg-white transition-[width] duration-200 ${
+        isOpen ? "w-64" : "w-16"
       }`}
     >
       <div className="flex h-16 items-center gap-3 border-b border-gray-100 px-4">
@@ -88,7 +88,11 @@ export default function Sidebar({ userLabel, logoutAction }) {
         >
           <HamburgerIcon />
         </button>
-        {isOpen ? <span className="truncate text-lg font-bold text-gray-900">Triphy</span> : null}
+        {isOpen ? (
+          <Link href="/dashboard/trips" className="truncate text-lg font-bold text-gray-900 transition hover:text-[#7386f5]">
+            Triphy
+          </Link>
+        ) : null}
       </div>
 
       {isOpen ? (
@@ -106,29 +110,48 @@ export default function Sidebar({ userLabel, logoutAction }) {
                 </button>
                 {openSections[section.id] ? (
                   <ul className="mt-1 grid gap-1 pl-4">
-                    {section.children.map((child, childIndex) => (
-                      <li key={`${section.id}-${childIndex}-${child.label}`}>
-                        <Link
-                          href={child.href}
-                          className="block rounded-lg px-2 py-1.5 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
-                        >
-                          {child.label}
-                        </Link>
-                      </li>
-                    ))}
+                    {section.children.map((child, childIndex) => {
+                      const isTripSlot = section.id === "resumen" && childIndex === 0 && Boolean(tripPill);
+
+                      if (isTripSlot) {
+                        return (
+                          <li key={`${section.id}-${childIndex}-trip-pill`}>
+                            <Link
+                              href={`/dashboard/trips/${tripPill.id}`}
+                              className="inline-flex h-8 max-w-full items-center truncate rounded-full bg-[#7386f5] px-3 text-sm font-semibold text-white transition hover:bg-[#5f70e0]"
+                            >
+                              {tripPill.name}
+                            </Link>
+                          </li>
+                        );
+                      }
+
+                      const locked = child.requiresTrip && !tripPill;
+
+                      return (
+                        <li key={`${section.id}-${childIndex}-${child.label}`}>
+                          {locked ? (
+                            <span
+                              aria-disabled="true"
+                              className="block cursor-not-allowed rounded-lg px-2 py-1.5 text-sm text-gray-300"
+                            >
+                              {child.label}
+                            </span>
+                          ) : (
+                            <Link
+                              href={child.href}
+                              className="block rounded-lg px-2 py-1.5 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
+                            >
+                              {child.label}
+                            </Link>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : null}
               </div>
             ))}
-
-            {tripPill ? (
-              <Link
-                href="/dashboard/trips"
-                className="mt-4 inline-flex h-9 items-center rounded-full bg-[#7386f5] px-4 text-sm font-medium text-white transition hover:bg-[#5f70e0]"
-              >
-                {tripPill.name}
-              </Link>
-            ) : null}
           </nav>
 
           <div className="flex items-center gap-3 border-t border-gray-100 px-4 py-4">
