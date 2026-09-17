@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderTripStops } from "@/app/dashboard/trips/actions";
+import StopOrdinal from "@/components/trips/StopOrdinal";
 
 function PinIcon({ className }) {
   return (
@@ -38,19 +39,10 @@ function PinIcon({ className }) {
 function StopCard({ stop, order, highlighted, isLast, dragging }) {
   return (
     <div className="flex gap-5">
-      <div className="flex flex-col items-center">
-        <span
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#7386f5] text-sm font-bold ${
-            highlighted ? "bg-[#7386f5] text-white" : "bg-white text-[#7386f5]"
-          }`}
-        >
-          {order}°
-        </span>
-        {!isLast ? <span className="my-1 w-0 flex-1 border-l-2 border-dashed border-[#7386f5]/40" /> : null}
-      </div>
+      <StopOrdinal order={order} highlighted={highlighted} isLast={isLast} />
 
       <div
-        className={`mb-6 flex h-28 w-full max-w-md overflow-hidden rounded-2xl shadow-sm transition-shadow ${
+        className={`mb-6 flex h-28 w-full max-w-md overflow-hidden rounded-2xl shadow-md transition-shadow ${
           highlighted ? "" : "border border-gray-100"
         } ${dragging ? "shadow-2xl" : ""}`}
       >

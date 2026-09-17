@@ -94,7 +94,7 @@ export default async function TripsPage() {
               Próximo viaje
             </span>
 
-            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
+            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 shadow-md">
               <div className="relative h-64 w-full bg-gray-100 sm:h-80">
                 {nextTrip.destinations[0]?.image ? (
                   <Image
@@ -128,7 +128,7 @@ export default async function TripsPage() {
                 <div className="mt-6 flex justify-end">
                   <Link
                     href={`/dashboard/trips/${nextTrip.id}`}
-                    className="group inline-flex h-11 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white shadow-sm transition-all duration-300 ease-out hover:scale-110 hover:bg-[#5f70e0] hover:shadow-lg"
+                    className="group inline-flex h-11 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white shadow-md transition-all duration-300 ease-out hover:scale-110 hover:bg-[#5f70e0] hover:shadow-xl"
                   >
                     Planificar viaje
                     <span className="transition-transform duration-300 ease-out group-hover:translate-x-1.5">→</span>

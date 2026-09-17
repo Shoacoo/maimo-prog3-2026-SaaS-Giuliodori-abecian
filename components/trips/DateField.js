@@ -65,7 +65,7 @@ export default function DateField({ label, name, value, onChange, minDate }) {
       <input type="hidden" name={name} value={toISODate(value)} readOnly />
 
       {open ? (
-        <div className="scheme-light absolute z-20 mt-2 rounded-xl border border-gray-200 bg-white p-2 text-gray-900 shadow-lg">
+        <div className="scheme-light absolute z-20 mt-2 rounded-xl border border-gray-200 bg-white p-2 text-gray-900 shadow-xl">
           <DayPicker
             mode="single"
             locale={undefined}

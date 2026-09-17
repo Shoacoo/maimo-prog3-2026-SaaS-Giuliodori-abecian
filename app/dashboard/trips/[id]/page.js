@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { getUserTrip } from "@/lib/trips/trips";
-import { totalTripDays, formatDateRange } from "@/lib/trips/dates";
+import { totalTripDays, formatDateRange, distributeDays, computeStopDateRanges, daysUntil } from "@/lib/trips/dates";
 import { getFlagUrl } from "@/lib/countries/flags";
 import TripStepper from "@/components/trips/TripStepper";
 import GoogleMap from "@/components/map/GoogleMap";
@@ -44,6 +44,21 @@ export default async function TripDetailPage({ params }) {
 
   const days = totalTripDays(trip.startDate, trip.endDate);
   const heroImage = trip.destinations[0]?.image;
+
+  const dayCounts = distributeDays(days, trip.destinations.length);
+  const stopRanges = computeStopDateRanges(trip.startDate, dayCounts);
+  const today = new Date().toISOString().slice(0, 10);
+  const nextIndex = stopRanges.findIndex((range) => range.endDate >= today);
+  const nextStop = nextIndex >= 0 ? trip.destinations[nextIndex] : null;
+  const nextDestination = nextStop
+    ? {
+        index: nextIndex,
+        name: nextStop.name,
+        image: nextStop.image,
+        flagUrl: getFlagUrl(nextStop.countryCode, nextStop.country),
+        daysUntil: daysUntil(today, stopRanges[nextIndex].startDate),
+      }
+    : null;
 
   const countryFlags = [];
   const seenCountries = new Set();
@@ -114,6 +129,8 @@ export default async function TripDetailPage({ params }) {
           className="h-full w-full"
           zoom={4}
           rounded={false}
+          showNearbyPlaces
+          nextDestination={nextDestination}
           markers={trip.destinations.map((destination) => ({
             lng: destination.lng,
             lat: destination.lat,

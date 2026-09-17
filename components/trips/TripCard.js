@@ -7,7 +7,7 @@ export default function TripCard({ trip }) {
   const cover = trip.destinations[0]?.image;
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm transition hover:shadow-md">
+    <div className="group relative overflow-hidden rounded-2xl border border-gray-100 shadow-md transition hover:shadow-lg">
       <Link href={`/dashboard/trips/${trip.id}`} className="block">
         <div className="relative h-40 w-full bg-gray-100">
           {cover ? (
@@ -27,7 +27,7 @@ export default function TripCard({ trip }) {
         <button
           type="submit"
           aria-label="Eliminar viaje"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow transition hover:bg-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-md transition hover:bg-white"
         >
           ✕
         </button>

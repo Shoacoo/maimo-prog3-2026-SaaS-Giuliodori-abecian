@@ -4,13 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import GoogleMap from "@/components/map/GoogleMap";
 import DateField from "@/components/trips/DateField";
-
-const ACCENTS = [
-  "from-orange-400 to-yellow-300",
-  "from-emerald-500 to-green-300",
-  "from-sky-400 to-blue-300",
-  "from-fuchsia-400 to-pink-300",
-];
+import StopOrdinal from "@/components/trips/StopOrdinal";
+import { getFlagUrl } from "@/lib/countries/flags";
 
 const DUMMY_COMPANIONS = [
   { name: "Francisco Galeano", email: "franciscogaleano@gmail.com", initials: "FG", color: "bg-orange-400" },
@@ -190,7 +185,7 @@ export default function TripForm({ action }) {
                 </span>
               ) : null}
               {predictions.length > 0 ? (
-                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                   {predictions.map((prediction) => (
                     <li key={prediction.placeId}>
                       <button
@@ -218,30 +213,59 @@ export default function TripForm({ action }) {
           {error ? <p className="mt-2 text-sm text-red-500">{error}</p> : null}
         </div>
 
-        <div className="mt-6 grid gap-4">
-          {destinations.map((city, index) => (
-            <div
-              key={city.placeId}
-              className="relative flex overflow-hidden rounded-2xl border border-gray-100 shadow-sm"
-            >
-              <div className="relative h-24 w-24 shrink-0">
-                <CityThumbnail city={city} className="h-24 w-24" />
+        <div className="mt-6 grid gap-3">
+          {destinations.map((city, index) => {
+            const flagUrl = getFlagUrl(city.countryCode, city.country);
+            const isLast = index === destinations.length - 1;
+
+            return (
+              <div key={city.placeId} className="flex gap-4">
+                <StopOrdinal order={index + 1} highlighted={index === 0} isLast={isLast} />
+
+                <div
+                  className={`mb-3 flex h-24 w-64 shrink-0 overflow-hidden rounded-2xl shadow-md transition-shadow ${
+                    index === 0 ? "" : "border border-gray-100"
+                  }`}
+                >
+                  <div className="relative w-20 shrink-0 bg-gray-100">
+                    <CityThumbnail city={city} className="h-24 w-20" />
+                  </div>
+                  <div
+                    className={`flex flex-1 flex-col justify-center gap-1 px-3 ${
+                      index === 0 ? "bg-[#7386f5]" : "bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className={`truncate text-sm font-semibold ${index === 0 ? "text-white" : "text-gray-900"}`}>
+                        {city.name}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => removeDestination(city.placeId)}
+                        aria-label={`Quitar ${city.name}`}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 shadow-md transition hover:bg-red-200"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p
+                      className={`flex items-center gap-1.5 text-xs ${
+                        index === 0 ? "text-white/80" : "text-gray-500"
+                      }`}
+                    >
+                      {flagUrl ? (
+                        <span className="h-4 w-4 shrink-0 overflow-hidden rounded-full ring-1 ring-white/40">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={flagUrl} alt={city.country} className="h-full w-full object-cover" />
+                        </span>
+                      ) : null}
+                      <span className="truncate">{city.country}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-1 flex-col justify-center px-4">
-                <h3 className="text-lg font-semibold text-gray-900">{city.name}</h3>
-                <p className="text-sm text-gray-500">{city.country}</p>
-                <span className={`mt-2 h-1.5 w-full rounded-full bg-gradient-to-r ${ACCENTS[index % ACCENTS.length]}`} />
-              </div>
-              <button
-                type="button"
-                onClick={() => removeDestination(city.placeId)}
-                aria-label={`Quitar ${city.name}`}
-                className="m-3 flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full bg-red-100 text-red-500 transition hover:bg-red-200"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-8">
@@ -258,7 +282,7 @@ export default function TripForm({ action }) {
                 className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-900 outline-none transition focus:border-[#7386f5] focus:ring-1 focus:ring-[#7386f5]"
               />
               {companionMatches.length > 0 ? (
-                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                   {companionMatches.map((person) => (
                     <li key={person.email}>
                       <button

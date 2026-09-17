@@ -13,7 +13,7 @@ export default function BackLink({ href, label = "Volver", variant = "default" }
     return (
       <Link
         href={href}
-        className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-gray-800 shadow-md backdrop-blur transition hover:bg-white"
+        className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-gray-800 shadow-lg backdrop-blur transition hover:bg-white"
       >
         <ArrowLeftIcon />
         {label}
