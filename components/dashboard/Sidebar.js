@@ -10,8 +10,7 @@ const NAV_SECTIONS = [
     label: "Resumen",
     children: [
       { label: "Mis viajes", href: "/dashboard/trips" },
-      { label: "Lugares para visitar", href: "/dashboard/proximamente", requiresTrip: true },
-      { label: "Notas", href: "/dashboard/proximamente", requiresTrip: true },
+      { label: "Lugares para visitar", href: (tripId) => `/dashboard/trips/${tripId}/lugares`, requiresTrip: true },
       { label: "Notas", href: "/dashboard/proximamente", requiresTrip: true },
     ],
   },
@@ -19,8 +18,8 @@ const NAV_SECTIONS = [
     id: "itinerario",
     label: "Itinerario",
     children: [
-      { label: "Calendario", href: "/dashboard/proximamente", requiresTrip: true },
-      { label: "Lugares para visitar", href: "/dashboard/proximamente", requiresTrip: true },
+      { label: "Calendario", href: (tripId) => `/dashboard/trips/${tripId}/itinerario`, requiresTrip: true },
+      { label: "Itinerario", href: (tripId) => `/dashboard/trips/${tripId}/itinerario`, requiresTrip: true },
     ],
   },
   {
@@ -127,6 +126,7 @@ export default function Sidebar({ userLabel, logoutAction }) {
                       }
 
                       const locked = child.requiresTrip && !tripPill;
+                      const href = typeof child.href === "function" ? child.href(tripPill?.id) : child.href;
 
                       return (
                         <li key={`${section.id}-${childIndex}-${child.label}`}>
@@ -139,7 +139,7 @@ export default function Sidebar({ userLabel, logoutAction }) {
                             </span>
                           ) : (
                             <Link
-                              href={child.href}
+                              href={href}
                               className="block rounded-lg px-2 py-1.5 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
                             >
                               {child.label}

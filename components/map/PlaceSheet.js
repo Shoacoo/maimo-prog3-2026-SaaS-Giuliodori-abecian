@@ -156,6 +156,7 @@ export default function PlaceSheet({ place, details, loading, activeTab, onTabCh
             <>
               {activeTab === "overview" ? (
                 <div className="grid gap-2">
+                  {details?.description ? <p className="text-sm text-gray-700">{details.description}</p> : null}
                   {place.address ? <p className="text-sm text-gray-600">{place.address}</p> : null}
                   {details?.reviews?.length ? (
                     <div className="mt-2">

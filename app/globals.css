@@ -4,6 +4,17 @@
 @theme {
   --font-sans: var(--font-rubik), Arial, Helvetica, sans-serif;
   --font-mono: var(--font-geist-mono), "SFMono-Regular", Consolas, monospace;
+
+  /* Tailwind's default shadow scale is very translucent (0.1 alpha) and reads
+     as a faint haze on a light UI. Bumped darker/more opaque across the board
+     so every `shadow-*` utility in the app reads as a clearly defined shadow
+     instead of a soft blur. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.16);
+  --shadow-sm: 0 1px 4px 0 rgb(0 0 0 / 0.22), 0 1px 3px -1px rgb(0 0 0 / 0.22);
+  --shadow-md: 0 6px 10px -1px rgb(0 0 0 / 0.24), 0 3px 6px -2px rgb(0 0 0 / 0.22);
+  --shadow-lg: 0 14px 20px -3px rgb(0 0 0 / 0.28), 0 6px 8px -4px rgb(0 0 0 / 0.24);
+  --shadow-xl: 0 24px 32px -5px rgb(0 0 0 / 0.32), 0 10px 12px -6px rgb(0 0 0 / 0.26);
+  --shadow-2xl: 0 28px 56px -12px rgb(0 0 0 / 0.5);
 }
 
 @layer base {

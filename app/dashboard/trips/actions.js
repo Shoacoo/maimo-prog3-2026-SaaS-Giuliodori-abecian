@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
-import { createUserTrip, deleteUserTrip, updateTripDestinationsOrder } from "@/lib/trips/trips";
+import {
+  createUserTrip,
+  deleteUserTrip,
+  updateTripDestinationsOrder,
+  addItineraryItem,
+  removeItineraryItem,
+} from "@/lib/trips/trips";
 
 function sanitizeDestinations(list) {
   if (!Array.isArray(list)) {
@@ -92,4 +98,47 @@ export async function reorderTripStops(tripId, destinations) {
 
   await updateTripDestinationsOrder(user.uid, tripId, sanitizeDestinations(destinations));
   revalidatePath(`/dashboard/trips/${tripId}`);
+}
+
+function sanitizeItineraryPlace(place) {
+  const placeId = String(place?.placeId || place?.id || "").trim();
+  const name = String(place?.name || "").trim();
+  const lat = Number(place?.lat);
+  const lng = Number(place?.lng);
+
+  if (!placeId || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error("El lugar seleccionado no tiene datos validos.");
+  }
+
+  return {
+    placeId,
+    name,
+    lat,
+    lng,
+    image: place.image ? String(place.image) : null,
+    category: place.category ? String(place.category) : null,
+    description: place.description ? String(place.description) : null,
+  };
+}
+
+export async function addPlaceToItinerary(tripId, date, place) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await addItineraryItem(user.uid, tripId, date, sanitizeItineraryPlace(place));
+  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
+  revalidatePath(`/dashboard/trips/${tripId}/lugares`);
+}
+
+export async function removePlaceFromItinerary(tripId, date, itemId) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await removeItineraryItem(user.uid, tripId, date, itemId);
+  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
+  revalidatePath(`/dashboard/trips/${tripId}/lugares`);
 }

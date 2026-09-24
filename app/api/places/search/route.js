@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
+  const lat = Number(searchParams.get("lat"));
+  const lng = Number(searchParams.get("lng"));
+  const hasLocationBias = Number.isFinite(lat) && Number.isFinite(lng);
 
   if (!query) {
     return NextResponse.json({ predictions: [] });
@@ -15,7 +18,15 @@ export async function GET(request) {
 
   const url = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
   url.searchParams.set("input", query);
-  url.searchParams.set("types", "(cities)");
+  if (hasLocationBias) {
+    // General place/business search (restaurants, museums, etc.), biased near
+    // a given point - used when searching for a specific place to add to an
+    // itinerary day, as opposed to the city search below.
+    url.searchParams.set("location", `${lat},${lng}`);
+    url.searchParams.set("radius", "50000");
+  } else {
+    url.searchParams.set("types", "(cities)");
+  }
   url.searchParams.set("language", "es");
   url.searchParams.set("key", apiKey);
 

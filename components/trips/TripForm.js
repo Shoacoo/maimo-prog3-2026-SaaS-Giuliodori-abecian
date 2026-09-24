@@ -28,14 +28,12 @@ export default function TripForm({ action }) {
   const [query, setQuery] = useState("");
   const [predictions, setPredictions] = useState([]);
   const [loadingPredictions, setLoadingPredictions] = useState(false);
-  const [selected, setSelected] = useState(null);
   const [resolvingPlaceId, setResolvingPlaceId] = useState(null);
   const [destinations, setDestinations] = useState([]);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [error, setError] = useState("");
   const [companionQuery, setCompanionQuery] = useState("");
-  const [selectedCompanion, setSelectedCompanion] = useState(null);
   const [companions, setCompanions] = useState([]);
   const debounceRef = useRef(null);
 
@@ -50,18 +48,8 @@ export default function TripForm({ action }) {
     : [];
 
   function selectCompanion(person) {
-    setSelectedCompanion(person);
-    setCompanionQuery(person.name);
-  }
-
-  function addCompanion() {
-    if (!selectedCompanion) {
-      return;
-    }
-
-    setCompanions((current) => [...current, selectedCompanion]);
     setCompanionQuery("");
-    setSelectedCompanion(null);
+    setCompanions((current) => [...current, person]);
   }
 
   function removeCompanion(email) {
@@ -69,7 +57,7 @@ export default function TripForm({ action }) {
   }
 
   useEffect(() => {
-    if (selected || !query.trim()) {
+    if (!query.trim()) {
       setPredictions([]);
       return;
     }
@@ -95,11 +83,11 @@ export default function TripForm({ action }) {
     }, 300);
 
     return () => clearTimeout(debounceRef.current);
-  }, [query, selected]);
+  }, [query]);
 
   async function selectPrediction(prediction) {
     setPredictions([]);
-    setQuery(`${prediction.mainText}, ${prediction.secondaryText}`);
+    setQuery("");
     setResolvingPlaceId(prediction.placeId);
     setError("");
 
@@ -108,30 +96,16 @@ export default function TripForm({ action }) {
       const data = await response.json();
       if (data.error) {
         setError(data.error);
-        setSelected(null);
+      } else if (destinations.some((city) => city.placeId === data.placeId)) {
+        setError("Esa ciudad ya esta en el viaje.");
       } else {
-        setSelected(data);
+        setDestinations((current) => [...current, data]);
       }
     } catch {
       setError("No se pudo obtener la informacion de la ciudad.");
     } finally {
       setResolvingPlaceId(null);
     }
-  }
-
-  function addDestination() {
-    if (!selected) {
-      return;
-    }
-
-    if (destinations.some((city) => city.placeId === selected.placeId)) {
-      setError("Esa ciudad ya esta en el viaje.");
-      return;
-    }
-
-    setDestinations((current) => [...current, selected]);
-    setQuery("");
-    setSelected(null);
   }
 
   function removeDestination(placeId) {
@@ -168,47 +142,34 @@ export default function TripForm({ action }) {
 
         <div className="mt-6">
           <span className="block text-base font-medium text-gray-900">¿A donde te diriges?</span>
-          <div className="relative mt-2 flex gap-3">
-            <div className="relative flex-1">
-              <input
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setSelected(null);
-                }}
-                placeholder="Buscar ciudad..."
-                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-900 outline-none transition focus:border-[#7386f5] focus:ring-1 focus:ring-[#7386f5]"
-              />
-              {loadingPredictions ? (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                  Buscando...
-                </span>
-              ) : null}
-              {predictions.length > 0 ? (
-                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-                  {predictions.map((prediction) => (
-                    <li key={prediction.placeId}>
-                      <button
-                        type="button"
-                        onClick={() => selectPrediction(prediction)}
-                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                      >
-                        <span>{prediction.mainText}</span>
-                        <span className="text-gray-400">{prediction.secondaryText}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={addDestination}
-              disabled={!selected || Boolean(resolvingPlaceId)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#7386f5] text-xl text-white transition hover:bg-[#5f70e0] disabled:opacity-40"
-            >
-              +
-            </button>
+          <div className="relative mt-2">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar ciudad..."
+              className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-900 outline-none transition focus:border-[#7386f5] focus:ring-1 focus:ring-[#7386f5]"
+            />
+            {loadingPredictions || resolvingPlaceId ? (
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                {resolvingPlaceId ? "Agregando..." : "Buscando..."}
+              </span>
+            ) : null}
+            {predictions.length > 0 ? (
+              <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                {predictions.map((prediction) => (
+                  <li key={prediction.placeId}>
+                    <button
+                      type="button"
+                      onClick={() => selectPrediction(prediction)}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <span>{prediction.mainText}</span>
+                      <span className="text-gray-400">{prediction.secondaryText}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
           {error ? <p className="mt-2 text-sm text-red-500">{error}</p> : null}
         </div>
@@ -270,42 +231,29 @@ export default function TripForm({ action }) {
 
         <div className="mt-8">
           <span className="block text-base font-medium text-gray-900">Agregar compañero:</span>
-          <div className="relative mt-2 flex gap-3">
-            <div className="relative flex-1">
-              <input
-                value={companionQuery}
-                onChange={(event) => {
-                  setCompanionQuery(event.target.value);
-                  setSelectedCompanion(null);
-                }}
-                placeholder="Buscar por email..."
-                className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-900 outline-none transition focus:border-[#7386f5] focus:ring-1 focus:ring-[#7386f5]"
-              />
-              {companionMatches.length > 0 ? (
-                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-                  {companionMatches.map((person) => (
-                    <li key={person.email}>
-                      <button
-                        type="button"
-                        onClick={() => selectCompanion(person)}
-                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                      >
-                        <span>{person.name}</span>
-                        <span className="text-gray-400">@{person.email}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={addCompanion}
-              disabled={!selectedCompanion}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#7386f5] text-xl text-white transition hover:bg-[#5f70e0] disabled:opacity-40"
-            >
-              +
-            </button>
+          <div className="relative mt-2">
+            <input
+              value={companionQuery}
+              onChange={(event) => setCompanionQuery(event.target.value)}
+              placeholder="Buscar por email..."
+              className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-gray-900 outline-none transition focus:border-[#7386f5] focus:ring-1 focus:ring-[#7386f5]"
+            />
+            {companionMatches.length > 0 ? (
+              <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                {companionMatches.map((person) => (
+                  <li key={person.email}>
+                    <button
+                      type="button"
+                      onClick={() => selectCompanion(person)}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <span>{person.name}</span>
+                      <span className="text-gray-400">@{person.email}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           {companions.length > 0 ? (

@@ -35,8 +35,8 @@ function PinIcon() {
 
 function StatTile({ value, label }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl bg-[#7386f5] px-6 py-6 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-lg font-bold text-[#7386f5]">
+    <div className="flex items-center justify-center gap-4 rounded-2xl bg-[#7386f5] px-10 py-6 text-center shadow-lg">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-lg font-bold text-[#7386f5]">
         {value}
       </span>
       <span className="text-sm font-medium text-white">{label}</span>
@@ -77,7 +77,7 @@ export default async function TripsPage() {
 
           <Link
             href="/dashboard/trips/new"
-            className="grid min-h-[220px] place-items-center rounded-2xl border-2 border-dashed border-gray-300 text-[#7386f5] transition hover:border-[#7386f5] hover:bg-[#7386f5]/5"
+            className="grid min-h-55 place-items-center rounded-2xl border-2 border-dashed border-[#7386f5]/40 text-[#7386f5] transition hover:border-[#7386f5] hover:bg-[#7386f5]/5"
           >
             <span className="flex flex-col items-center gap-2 text-sm font-medium">
               <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#7386f5] text-lg leading-none">
@@ -142,7 +142,7 @@ export default async function TripsPage() {
         {trips.length > 0 ? (
           <div className="mt-12">
             <h2 className="text-lg font-bold text-[#7386f5]">Tu actividad:</h2>
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:max-w-md">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <StatTile value={trips.length} label="Viajes activos" />
               <StatTile value={uniqueCities.size} label="Ciudades" />
               <StatTile value={totalDays} label="Días planificados" />
