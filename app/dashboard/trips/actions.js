@@ -9,7 +9,9 @@ import {
   updateTripDestinationsOrder,
   addItineraryItem,
   removeItineraryItem,
+  updateItineraryItem,
   reorderItineraryItems,
+  moveItineraryItem,
   addNoteFolder,
   deleteNoteFolder,
   addNote,
@@ -152,6 +154,23 @@ export async function removePlaceFromItinerary(tripId, date, itemId) {
   revalidatePath(`/dashboard/trips/${tripId}/lugares`);
 }
 
+function sanitizeItineraryTime(time) {
+  return typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : null;
+}
+
+export async function updateItineraryItemAction(tripId, date, itemId, { time, note }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await updateItineraryItem(user.uid, tripId, date, itemId, {
+    time: sanitizeItineraryTime(time),
+    note: String(note || "").trim().slice(0, 280) || null,
+  });
+  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
+}
+
 export async function reorderItineraryItemsAction(tripId, date, orderedIds) {
   const user = await getCurrentUser();
   if (!user) {
@@ -159,6 +178,16 @@ export async function reorderItineraryItemsAction(tripId, date, orderedIds) {
   }
 
   await reorderItineraryItems(user.uid, tripId, date, orderedIds);
+  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
+}
+
+export async function moveItineraryItemAction(tripId, fromDate, toDate, fromOrderedIds, toOrderedIds) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await moveItineraryItem(user.uid, tripId, fromDate, toDate, fromOrderedIds, toOrderedIds);
   revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
 }
 
