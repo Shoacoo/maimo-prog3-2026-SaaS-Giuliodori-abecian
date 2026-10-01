@@ -195,9 +195,14 @@ export default function LoginForm() {
 
         <div className="flex flex-1 flex-col justify-center py-8">
           <div className="mx-auto w-full max-w-md">
+            <div className="flex items-center gap-2">
+              <Image src="/logo-mark.png" alt="" width={28} height={28} className="h-7 w-7" priority />
+              <span className="text-lg font-bold text-gray-900">Triphy</span>
+            </div>
+
             <h1
               id="login-title"
-              className="text-2xl font-semibold text-gray-900 sm:text-3xl"
+              className="mt-6 text-2xl font-semibold text-gray-900 sm:text-3xl"
             >
               {copy.heading}
             </h1>

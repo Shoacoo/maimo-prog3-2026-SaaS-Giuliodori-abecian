@@ -1,5 +1,6 @@
 import GoogleMap from "@/components/map/GoogleMap";
 import { getNextDestination } from "@/lib/trips/nextDestination";
+import { listTripDates } from "@/lib/trips/dates";
 
 export default function TripMapPanel({ trip }) {
   return (
@@ -10,6 +11,8 @@ export default function TripMapPanel({ trip }) {
         rounded={false}
         showNearbyPlaces
         nextDestination={getNextDestination(trip)}
+        tripId={trip.id}
+        dateList={listTripDates(trip.startDate, trip.endDate)}
         markers={trip.destinations.map((destination) => ({
           lng: destination.lng,
           lat: destination.lat,

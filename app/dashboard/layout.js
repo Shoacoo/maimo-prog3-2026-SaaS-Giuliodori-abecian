@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
+import { getUserRole } from "@/lib/users/users";
 import { TripPillProvider } from "@/components/dashboard/TripPillProvider";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { logout } from "./actions";
@@ -12,11 +13,12 @@ export default async function DashboardLayout({ children }) {
   }
 
   const userLabel = user.email ? user.email.split("@")[0] : "Viajero";
+  const isAdmin = (await getUserRole(user.uid)) === "admin";
 
   return (
     <TripPillProvider>
       <div className="flex min-h-screen bg-white">
-        <Sidebar userLabel={userLabel} logoutAction={logout} />
+        <Sidebar userLabel={userLabel} logoutAction={logout} isAdmin={isAdmin} />
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </TripPillProvider>

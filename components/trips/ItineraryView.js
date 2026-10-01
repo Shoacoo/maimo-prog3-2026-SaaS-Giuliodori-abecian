@@ -1,9 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import StopOrdinal from "@/components/trips/StopOrdinal";
-import { addPlaceToItinerary, removePlaceFromItinerary } from "@/app/dashboard/trips/actions";
+import {
+  addPlaceToItinerary,
+  removePlaceFromItinerary,
+  reorderItineraryItemsAction,
+} from "@/app/dashboard/trips/actions";
 
 const WEEKDAY_FORMATTER = new Intl.DateTimeFormat("es-AR", { weekday: "short" });
 const DAY_NUMBER_FORMATTER = new Intl.DateTimeFormat("es-AR", { day: "numeric" });
@@ -63,6 +84,113 @@ function StatusLine({ details }) {
       <span className="font-semibold text-emerald-600">Abierto</span>
       {details.closesAt ? <span className="text-gray-500"> • Cierra {details.closesAt}</span> : null}
     </p>
+  );
+}
+
+function ActivityCard({ item, order, isLast, details, onRemove, dragging }) {
+  return (
+    <div className="flex gap-4">
+      <StopOrdinal order={order} highlighted={false} isLast={isLast} />
+      <div className="mb-4 flex flex-1 items-stretch gap-3">
+        <div
+          className={`flex h-36 flex-1 overflow-hidden rounded-2xl border-2 border-[#7386f5] bg-white shadow-md transition-shadow ${
+            dragging ? "shadow-2xl" : ""
+          }`}
+        >
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 p-5">
+            <p className="font-semibold text-gray-900">{item.name}</p>
+            <StatusLine details={details} />
+            {details?.description ? <p className="line-clamp-2 text-sm text-gray-500">{details.description}</p> : null}
+          </div>
+          {item.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.image} alt={item.name} className="w-40 shrink-0 object-cover" />
+          ) : null}
+        </div>
+        {onRemove ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Quitar ${item.name}`}
+            className="flex w-14 shrink-0 items-center justify-center rounded-2xl bg-red-400 text-white shadow-md transition hover:bg-red-500"
+          >
+            <TrashIcon />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SortableActivityItem({ item, order, isLast, details, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing">
+      <ActivityCard item={item} order={order} isLast={isLast} details={details} onRemove={onRemove} />
+    </div>
+  );
+}
+
+function DayActivities({ date, items, itemDetails, onReorder, onRemove }) {
+  const dndId = useId();
+  const [activeId, setActiveId] = useState(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = items.findIndex((item) => item.id === active.id);
+    const newIndex = items.findIndex((item) => item.id === over.id);
+    onReorder(date, arrayMove(items, oldIndex, newIndex));
+  }
+
+  const activeIndex = items.findIndex((item) => item.id === activeId);
+  const activeItem = activeIndex >= 0 ? items[activeIndex] : null;
+
+  return (
+    <DndContext
+      id={dndId}
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={(event) => setActiveId(event.active.id)}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+        <div className="grid gap-1">
+          {items.map((item, index) => (
+            <SortableActivityItem
+              key={item.id}
+              item={item}
+              order={index + 1}
+              isLast={index === items.length - 1}
+              details={itemDetails[item.id]}
+              onRemove={() => onRemove(date, item.id)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+
+      <DragOverlay>
+        {activeItem ? (
+          <ActivityCard item={activeItem} order={activeIndex + 1} isLast details={itemDetails[activeItem.id]} dragging />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
@@ -235,6 +363,21 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
     });
   }
 
+  function handleReorder(date, reorderedItems) {
+    const previous = localItinerary;
+    setLocalItinerary((current) => ({ ...current, [date]: reorderedItems }));
+    setError("");
+
+    startTransition(async () => {
+      try {
+        await reorderItineraryItemsAction(tripId, date, reorderedItems.map((item) => item.id));
+      } catch {
+        setLocalItinerary(previous);
+        setError("No se pudo guardar el nuevo orden. Intenta de nuevo.");
+      }
+    });
+  }
+
   const selectedDateObj = dateObjFor(selectedDate);
 
   return (
@@ -310,36 +453,13 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
                 {!collapsed ? (
                   <div className="mt-4">
                     {items.length > 0 ? (
-                      <div className="grid gap-1">
-                        {items.map((item, index) => (
-                          <div key={item.id} className="flex gap-4">
-                            <StopOrdinal order={index + 1} highlighted={false} isLast={index === items.length - 1} />
-                            <div className="mb-4 flex flex-1 items-stretch gap-3">
-                              <div className="flex min-h-32 flex-1 overflow-hidden rounded-2xl border-2 border-[#7386f5] bg-white shadow-md">
-                                <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 p-5">
-                                  <p className="font-semibold text-gray-900">{item.name}</p>
-                                  <StatusLine details={itemDetails[item.id]} />
-                                  {itemDetails[item.id]?.description ? (
-                                    <p className="text-sm text-gray-500">{itemDetails[item.id].description}</p>
-                                  ) : null}
-                                </div>
-                                {item.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={item.image} alt={item.name} className="w-40 shrink-0 object-cover" />
-                                ) : null}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemove(date, item.id)}
-                                aria-label={`Quitar ${item.name}`}
-                                className="flex w-14 shrink-0 items-center justify-center rounded-2xl bg-red-400 text-white shadow-md transition hover:bg-red-500"
-                              >
-                                <TrashIcon />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <DayActivities
+                        date={date}
+                        items={items}
+                        itemDetails={itemDetails}
+                        onReorder={handleReorder}
+                        onRemove={handleRemove}
+                      />
                     ) : (
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <p className="text-sm text-gray-400">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useTripPill } from "@/components/dashboard/TripPillProvider";
 
 const NAV_SECTIONS = [
@@ -11,7 +12,7 @@ const NAV_SECTIONS = [
     children: [
       { label: "Mis viajes", href: "/dashboard/trips" },
       { label: "Lugares para visitar", href: (tripId) => `/dashboard/trips/${tripId}/lugares`, requiresTrip: true },
-      { label: "Notas", href: "/dashboard/proximamente", requiresTrip: true },
+      { label: "Notas", href: (tripId) => `/dashboard/trips/${tripId}/notas`, requiresTrip: true },
     ],
   },
   {
@@ -61,7 +62,7 @@ function UserIcon() {
   );
 }
 
-export default function Sidebar({ userLabel, logoutAction }) {
+export default function Sidebar({ userLabel, logoutAction, isAdmin }) {
   const [isOpen, setIsOpen] = useState(true);
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((section) => [section.id, true])),
@@ -88,7 +89,11 @@ export default function Sidebar({ userLabel, logoutAction }) {
           <HamburgerIcon />
         </button>
         {isOpen ? (
-          <Link href="/dashboard/trips" className="truncate text-lg font-bold text-gray-900 transition hover:text-[#7386f5]">
+          <Link
+            href="/dashboard/trips"
+            className="flex min-w-0 items-center gap-2 truncate text-lg font-bold text-gray-900 transition hover:text-[#7386f5]"
+          >
+            <Image src="/logo-mark.png" alt="" width={24} height={24} className="h-6 w-6 shrink-0" priority />
             Triphy
           </Link>
         ) : null}
@@ -153,6 +158,17 @@ export default function Sidebar({ userLabel, logoutAction }) {
               </div>
             ))}
           </nav>
+
+          {isAdmin ? (
+            <div className="border-t border-gray-100 px-3 py-3">
+              <Link
+                href="/admin"
+                className="flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                Panel de administrador
+              </Link>
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-3 border-t border-gray-100 px-4 py-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">

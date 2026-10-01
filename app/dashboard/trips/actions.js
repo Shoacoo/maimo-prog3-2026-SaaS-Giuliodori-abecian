@@ -9,7 +9,16 @@ import {
   updateTripDestinationsOrder,
   addItineraryItem,
   removeItineraryItem,
+  reorderItineraryItems,
+  addNoteFolder,
+  deleteNoteFolder,
+  addNote,
+  updateNote,
+  deleteNote,
+  reorderNotes,
 } from "@/lib/trips/trips";
+
+const NOTE_COLOR_IDS = new Set(["yellow", "rose", "sky", "violet"]);
 
 function sanitizeDestinations(list) {
   if (!Array.isArray(list)) {
@@ -141,4 +150,105 @@ export async function removePlaceFromItinerary(tripId, date, itemId) {
   await removeItineraryItem(user.uid, tripId, date, itemId);
   revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
   revalidatePath(`/dashboard/trips/${tripId}/lugares`);
+}
+
+export async function reorderItineraryItemsAction(tripId, date, orderedIds) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await reorderItineraryItems(user.uid, tripId, date, orderedIds);
+  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
+}
+
+function sanitizeNoteColor(color) {
+  return NOTE_COLOR_IDS.has(color) ? color : "yellow";
+}
+
+export async function createNoteFolder(tripId, { name, color }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const cleanName = String(name || "").trim();
+  if (!cleanName) {
+    throw new Error("El nombre de la carpeta es obligatorio.");
+  }
+
+  const folder = await addNoteFolder(user.uid, tripId, { name: cleanName, color: sanitizeNoteColor(color) });
+  revalidatePath(`/dashboard/trips/${tripId}/notas`);
+  return folder;
+}
+
+export async function deleteNoteFolderAction(tripId, folderId) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await deleteNoteFolder(user.uid, tripId, folderId);
+  revalidatePath(`/dashboard/trips/${tripId}/notas`);
+}
+
+export async function createNote(tripId, { folderId, title, content, color }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const cleanTitle = String(title || "").trim();
+  if (!cleanTitle) {
+    throw new Error("El titulo de la nota es obligatorio.");
+  }
+
+  const note = await addNote(user.uid, tripId, {
+    folderId: folderId || null,
+    title: cleanTitle,
+    content: String(content || "").trim(),
+    color: sanitizeNoteColor(color),
+  });
+  revalidatePath(`/dashboard/trips/${tripId}/notas`);
+  return note;
+}
+
+export async function updateNoteAction(tripId, noteId, { folderId, title, content, color }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const cleanTitle = String(title || "").trim();
+  if (!cleanTitle) {
+    throw new Error("El titulo de la nota es obligatorio.");
+  }
+
+  await updateNote(user.uid, tripId, noteId, {
+    folderId: folderId || null,
+    title: cleanTitle,
+    content: String(content || "").trim(),
+    color: sanitizeNoteColor(color),
+  });
+  revalidatePath(`/dashboard/trips/${tripId}/notas`);
+}
+
+export async function deleteNoteAction(tripId, noteId) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await deleteNote(user.uid, tripId, noteId);
+  revalidatePath(`/dashboard/trips/${tripId}/notas`);
+}
+
+export async function reorderNotesAction(tripId, orderedIds) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  await reorderNotes(user.uid, tripId, orderedIds);
+  revalidatePath(`/dashboard/trips/${tripId}/notas`);
 }

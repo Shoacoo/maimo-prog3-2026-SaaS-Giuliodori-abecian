@@ -31,7 +31,7 @@ export default async function TripPlacesPage({ params }) {
   if (apiKey) {
     const perCity = await Promise.all(
       trip.destinations.map(async (destination) => {
-        const results = await getNearbyPlaces(destination.lat, destination.lng, apiKey);
+        const results = await getNearbyPlaces(destination.lat, destination.lng, apiKey, { limit: true });
         return results.map((place) => ({ ...place, cityName: destination.name }));
       }),
     );

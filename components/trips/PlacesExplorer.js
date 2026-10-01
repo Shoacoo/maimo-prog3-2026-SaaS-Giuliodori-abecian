@@ -1,19 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { addPlaceToItinerary } from "@/app/dashboard/trips/actions";
+import { useEffect, useRef, useState } from "react";
 import { getFlagUrl } from "@/lib/countries/flags";
+import AddToItineraryButton from "@/components/trips/AddToItineraryButton";
 
-const DATE_LABEL_FORMATTER = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric" });
 const SCROLLBAR_CLASSES =
   "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#7386f5]/40";
 
 function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function dateLabel(date) {
-  return capitalize(DATE_LABEL_FORMATTER.format(new Date(`${date}T00:00:00`)));
 }
 
 function ChevronRightIcon() {
@@ -34,6 +29,15 @@ function PinIcon() {
         strokeLinejoin="round"
       />
       <circle cx="12" cy="9.5" r="2.5" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true" className="text-[#7386f5]">
+      <path d="M12 3c.6 3.2 1.9 4.7 5 5.3-3.1.6-4.4 2.1-5 5.3-.6-3.2-1.9-4.7-5-5.3 3.1-.6 4.4-2.1 5-5.3Z" />
+      <path d="M19 13.5c.3 1.6.9 2.3 2.5 2.6-1.6.3-2.2 1-2.5 2.6-.3-1.6-.9-2.3-2.5-2.6 1.6-.3 2.2-1 2.5-2.6Z" />
     </svg>
   );
 }
@@ -88,70 +92,27 @@ function useDescriptions(visibleIds) {
   return descriptions;
 }
 
-function AddToItineraryButton({ place, dateList, tripId }) {
-  const [open, setOpen] = useState(false);
-  const [confirmation, setConfirmation] = useState("");
-  const [, startTransition] = useTransition();
 
-  function handlePick(date) {
-    setOpen(false);
-    startTransition(async () => {
-      try {
-        await addPlaceToItinerary(tripId, date, place);
-        setConfirmation(`Agregado a ${dateLabel(date)}`);
-        setTimeout(() => setConfirmation(""), 2500);
-      } catch {
-        setConfirmation("No se pudo agregar.");
-        setTimeout(() => setConfirmation(""), 2500);
-      }
-    });
-  }
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex h-10 w-full items-center justify-center rounded-full bg-[#7386f5] text-sm font-semibold text-white shadow-md transition hover:bg-[#5f70e0]"
-      >
-        Agregar lugar
-      </button>
-
-      {confirmation ? (
-        <p className="mt-1.5 text-center text-xs font-medium text-[#7386f5]">{confirmation}</p>
-      ) : null}
-
-      {open ? (
-        <div className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
-          <p className="border-b border-gray-100 px-3 py-2 text-xs font-semibold text-gray-400">Elegi el dia</p>
-          <ul className="max-h-48 overflow-y-auto">
-            {dateList.map((date) => (
-              <li key={date}>
-                <button
-                  type="button"
-                  onClick={() => handlePick(date)}
-                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                >
-                  {dateLabel(date)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function PlaceCard({ place, description, dateList, tripId, className = "" }) {
+function PlaceCard({ place, description, dateList, tripId, className = "", recommended = false }) {
   return (
     <div className={`flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md ${className}`}>
-      {place.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={place.image} alt={place.name} className="h-36 w-full object-cover" />
-      ) : (
-        <div className="h-36 w-full bg-gray-100" />
-      )}
+      <div className="relative h-36 w-full shrink-0">
+        {place.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={place.image} alt={place.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="h-full w-full bg-gray-100" />
+        )}
+        {recommended ? (
+          <span
+            title="Recomendado por Triphy"
+            className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-md"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mark.png" alt="Recomendado por Triphy" className="h-4 w-4" />
+          </span>
+        ) : null}
+      </div>
       <div className="flex flex-1 flex-col gap-1 p-4">
         <div className="flex items-start justify-between gap-2">
           <p className="truncate font-bold text-gray-900">{place.name}</p>
@@ -217,7 +178,7 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
         <div>
           <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
             Recomendaciones de Triphy
-            <span aria-hidden="true">✨</span>
+            <SparkleIcon />
           </h2>
           <div className="relative mt-4">
             <div ref={carouselRef} className={`flex gap-4 overflow-x-auto pb-3 ${SCROLLBAR_CLASSES}`}>
@@ -229,6 +190,7 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
                   dateList={dateList}
                   tripId={tripId}
                   className="w-72 shrink-0"
+                  recommended
                 />
               ))}
             </div>

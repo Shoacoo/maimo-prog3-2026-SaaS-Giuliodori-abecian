@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "TP5 SaaS Starter",
-  description: "Next.js server-side boilerplate with Firebase Auth",
+  title: "Triphy",
+  description: "Planifica, organiza y controla tus viajes en un mismo lugar.",
 };
 
 export default function RootLayout({ children }) {

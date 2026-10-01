@@ -88,54 +88,66 @@ export default async function TripsPage() {
           </Link>
         </div>
 
-        {nextTrip ? (
+        {trips.length > 0 ? (
           <div className="mt-12">
             <span className="inline-flex h-9 items-center rounded-r-full bg-[#7386f5] px-5 text-sm font-semibold text-white">
               Próximo viaje
             </span>
 
-            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 shadow-md">
-              <div className="relative h-64 w-full bg-gray-100 sm:h-80">
-                {nextTrip.destinations[0]?.image ? (
-                  <Image
-                    src={nextTrip.destinations[0].image}
-                    alt={nextTrip.name}
-                    fill
-                    sizes="800px"
-                    className="object-cover"
-                  />
-                ) : null}
+            {nextTrip ? (
+              <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 shadow-md">
+                <div className="relative h-64 w-full bg-gray-100 sm:h-80">
+                  {nextTrip.destinations[0]?.image ? (
+                    <Image
+                      src={nextTrip.destinations[0].image}
+                      alt={nextTrip.name}
+                      fill
+                      sizes="800px"
+                      className="object-cover"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="p-6">
+                  <h2 className="text-3xl font-bold text-gray-900">{nextTrip.name}</h2>
+
+                  <div className="mt-3 flex flex-col gap-1.5 text-gray-600">
+                    <span className="flex items-center gap-2">
+                      <CalendarIcon />
+                      {formatDateRange(nextTrip.startDate, nextTrip.endDate)}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <PinIcon />
+                      {nextTrip.destinations.length} {nextTrip.destinations.length === 1 ? "ciudad" : "ciudades"}
+                    </span>
+                  </div>
+
+                  <div className="mt-4">
+                    <RouteFlags destinations={nextTrip.destinations} />
+                  </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <Link
+                      href={`/dashboard/trips/${nextTrip.id}`}
+                      className="group inline-flex h-11 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white shadow-md transition-all duration-300 ease-out hover:scale-110 hover:bg-[#5f70e0] hover:shadow-xl"
+                    >
+                      Planificar viaje
+                      <span className="transition-transform duration-300 ease-out group-hover:translate-x-1.5">→</span>
+                    </Link>
+                  </div>
+                </div>
               </div>
-
-              <div className="p-6">
-                <h2 className="text-3xl font-bold text-gray-900">{nextTrip.name}</h2>
-
-                <div className="mt-3 flex flex-col gap-1.5 text-gray-600">
-                  <span className="flex items-center gap-2">
-                    <CalendarIcon />
-                    {formatDateRange(nextTrip.startDate, nextTrip.endDate)}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <PinIcon />
-                    {nextTrip.destinations.length} {nextTrip.destinations.length === 1 ? "ciudad" : "ciudades"}
-                  </span>
-                </div>
-
-                <div className="mt-4">
-                  <RouteFlags destinations={nextTrip.destinations} />
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                  <Link
-                    href={`/dashboard/trips/${nextTrip.id}`}
-                    className="group inline-flex h-11 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white shadow-md transition-all duration-300 ease-out hover:scale-110 hover:bg-[#5f70e0] hover:shadow-xl"
-                  >
-                    Planificar viaje
-                    <span className="transition-transform duration-300 ease-out group-hover:translate-x-1.5">→</span>
-                  </Link>
-                </div>
+            ) : (
+              <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[#7386f5]/30 bg-[#7386f5]/5 px-6 py-14 text-center">
+                <p className="text-gray-500">No tenes viajes proximos en el calendario.</p>
+                <Link
+                  href="/dashboard/trips/new"
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white shadow-md transition hover:bg-[#5f70e0]"
+                >
+                  Planificar un viaje nuevo
+                </Link>
               </div>
-            </div>
+            )}
           </div>
         ) : null}
 

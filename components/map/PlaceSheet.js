@@ -1,5 +1,7 @@
 "use client";
 
+import AddToItineraryButton from "@/components/trips/AddToItineraryButton";
+
 const TABS = [
   { id: "overview", label: "Vista general" },
   { id: "menu", label: "Carta" },
@@ -89,7 +91,7 @@ function PhotosGrid({ photos }) {
 
 const PRICE_LABELS = ["Gratis", "Económico", "Moderado", "Caro", "Muy caro"];
 
-export default function PlaceSheet({ place, details, loading, activeTab, onTabChange, onClose }) {
+export default function PlaceSheet({ place, details, loading, activeTab, onTabChange, onClose, tripId, dateList }) {
   const mapsUrl = `https://www.google.com/maps/place/?q=place_id:${place.id}`;
 
   return (
@@ -131,6 +133,18 @@ export default function PlaceSheet({ place, details, loading, activeTab, onTabCh
 
         <p className="mt-1 text-sm text-gray-600">{place.category}</p>
         <StatusLine details={details} />
+
+        {tripId && dateList?.length ? (
+          <div className="mt-3">
+            <AddToItineraryButton
+              place={{ ...place, description: details?.description || place.description }}
+              dateList={dateList}
+              tripId={tripId}
+              compact
+              direction="down"
+            />
+          </div>
+        ) : null}
 
         <div className="-mx-4 mt-3 border-b border-gray-100 px-4">
           <div className="flex gap-4 overflow-x-auto pb-3 text-sm font-medium text-gray-500">
