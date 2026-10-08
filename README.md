@@ -1,378 +1,79 @@
-# Trabajo Practico: Desarrollo de una Aplicacion SaaS con Next.js y Firebase
+# Triphy
 
 ## Presentacion
 
-Este repositorio proporciona una base tecnica para el desarrollo de una aplicacion web de tipo SaaS utilizando Next.js, Firebase Authentication, Firebase Admin SDK, Firestore y Tailwind CSS.
+Triphy es una aplicacion para planificar viajes de punta a punta: desde elegir las ciudades que vas a visitar hasta armar, dia por dia, que vas a hacer en cada una. Reemplaza la mezcla de notas sueltas, planillas y pestanas de Google Maps que normalmente se usa para organizar un viaje, centralizando todo en un solo lugar: destinos, itinerario con horarios, lugares recomendados para visitar y apuntes personales.
 
-El trabajo practico debera realizarse en grupos de 2 integrantes. Cada grupo debera definir una propuesta propia de aplicacion, disenar su modelo de datos, implementar las rutas y componentes necesarios, y desarrollar una funcionalidad principal que permita a los usuarios autenticados gestionar informacion persistente.
+## Integrantes
 
-La finalidad del trabajo es integrar conceptos de desarrollo web moderno, autenticacion, autorizacion, persistencia de datos, arquitectura basada en componentes y diseno de interfaces.
+- Giuliodori
+- Joaco Abecian
 
-## Que Es Una SaaS
+*(completar apellidos/nombres completos)*
 
-Una SaaS, o Software as a Service, es una aplicacion de software disponible a traves de internet que permite a los usuarios acceder a funcionalidades sin instalar programas localmente. En este modelo, la aplicacion se ejecuta en servidores remotos y los usuarios interactuan con ella mediante un navegador.
+## El problema
 
-En terminos practicos, una SaaS suele incluir:
+Planificar un viaje implica juntar informacion de muchas fuentes distintas: lugares para visitar, horarios, notas personales, mapas. Esa informacion se pierde facil o queda dispersa entre apps que no se hablan entre si. Triphy le da a cada usuario un espacio propio por viaje donde toda esa planificacion vive junta y es facil de reorganizar a medida que el plan cambia.
 
-- Registro e inicio de sesion de usuarios.
-- Gestion de datos propios de cada usuario.
-- Panel privado o dashboard.
-- Funcionalidades especificas asociadas a un problema o necesidad.
-- Persistencia de informacion en una base de datos.
-- Separacion entre vistas publicas y vistas protegidas.
+## Usuario objetivo
 
-Ejemplos conocidos de productos SaaS son gestores de tareas, plataformas de estudio, herramientas de finanzas personales, sistemas de organizacion de proyectos, aplicaciones de planificacion, CRMs, sistemas de reservas, plataformas de contenido y herramientas colaborativas.
+Cualquier persona que este organizando un viaje (de un fin de semana o de varias semanas, a una o varias ciudades) y quiera tener el itinerario, los lugares a visitar y sus notas en un solo lugar, accesible desde cualquier dispositivo.
 
-## Objetivo General
+## Funcionalidades implementadas
 
-Desarrollar una aplicacion SaaS funcional a partir del boilerplate provisto.
+**Cuentas y acceso**
+- Registro e inicio de sesion con email/contrasena o con Google.
+- Cada usuario ve y gestiona unicamente sus propios viajes.
 
-Cada grupo debera definir un problema concreto, proponer una solucion digital y construir una aplicacion que permita a un usuario autenticado crear, consultar, modificar y eliminar informacion propia.
+**Gestion de viajes**
+- Creacion de un viaje con nombre, fechas y uno o varios destinos (ciudades), buscados y ubicados en el mapa.
+- Reordenar los destinos de un viaje arrastrandolos.
+- Eliminar un viaje.
 
-El resultado esperado no es una maqueta visual ni una landing page estatica, sino una aplicacion web con autenticacion, rutas protegidas, persistencia de datos y una funcionalidad principal completa.
+**Itinerario dia por dia**
+- Por cada dia del viaje, se pueden agregar actividades (lugares) al plan.
+- Las actividades se pueden reordenar arrastrandolas dentro de un mismo dia, o moverlas a otro dia distinto arrastrandolas entre columnas.
+- Cada actividad se puede editar para fijarle un horario (en bloques de 15 minutos) y agregarle una nota personal (por ejemplo, "reservar con anticipacion").
 
-## Tecnologias Incluidas En El Boilerplate
+**Mapa interactivo y lugares para visitar**
+- Mapa compartido en las vistas del viaje que muestra el destino y los lugares cercanos por categoria (comida, atracciones, alojamiento, etc.).
+- Seccion "Lugares para visitar" con una seleccion curada de los lugares mejor calificados cerca del destino.
+- Desde el mapa o desde esa seccion se puede agregar cualquier lugar directo al itinerario de un dia especifico.
 
-El proyecto base incluye:
+**Notas del viaje**
+- Notas tipo tarjeta, organizables en carpetas y con colores para clasificarlas.
+- Se pueden crear, editar, reordenar (arrastrando) y eliminar.
 
-- Next.js con App Router.
-- JavaScript.
-- Tailwind CSS.
-- Dark mode.
-- Tipografia Geist mediante `next/font`.
-- Firebase Authentication.
-- Inicio de sesion con email y contrasena.
-- Inicio de sesion con Google.
-- Sesion server-side mediante cookie HTTP-only.
-- Rutas protegidas.
-- Dashboard privado en `/dashboard`.
-- ABM base en `/dashboard/items` con documentos de Firestore asociados al usuario autenticado.
-- Firebase Admin SDK para validacion de sesion desde el servidor.
+**Panel de administracion**
+- Rol de administrador separado del de usuario comun.
+- Dashboard con metricas generales: cantidad de usuarios, viajes creados por semana, lugares mas buscados/agregados, etc., con graficos.
+- Gestion de usuarios y de viajes (incluye baja con confirmacion).
 
-## Tematicas Posibles
+## Entidad principal: Viaje (`trips`)
 
-La tematica de la SaaS es libre, pero debe responder a una necesidad clara y permitir la gestion de informacion por parte de usuarios autenticados.
+| Campo | Descripcion |
+|---|---|
+| `userId` | Dueno del viaje |
+| `name`, `startDate`, `endDate` | Datos generales del viaje |
+| `destinations` | Ciudades elegidas, con su orden |
+| `itinerary` | Actividades agendadas, agrupadas por dia, cada una con horario y nota opcional |
+| `notes`, `noteFolders` | Notas del viaje y sus carpetas |
 
-Ejemplos de tematicas:
+## Rutas principales
 
-- Gestion academica personal.
-- Administracion de gastos.
-- Seguimiento de habitos.
-- Planificacion de actividades.
-- Gestion de proyectos.
-- Administracion de pedidos.
-- Catalogo de productos.
-- Registro de suscripciones.
-- Organizacion de viajes.
-- Gestion de eventos.
-- Administracion de recursos educativos.
-- Seguimiento de postulaciones.
-- Gestion de clientes.
-- Planificacion de contenido.
+- `/login` - acceso.
+- `/dashboard/trips` - listado de viajes del usuario.
+- `/dashboard/trips/new` - crear viaje.
+- `/dashboard/trips/[id]` - resumen del viaje.
+- `/dashboard/trips/[id]/itinerario` - itinerario dia por dia.
+- `/dashboard/trips/[id]/lugares` - lugares recomendados para visitar.
+- `/dashboard/trips/[id]/notas` - notas del viaje.
+- `/admin` - panel de administracion (solo administradores).
 
-La evaluacion considerara la coherencia entre el problema elegido, el modelo de datos, las funcionalidades implementadas y la experiencia de uso.
+## Como ejecutar el proyecto
 
-## Alcance Obligatorio
-
-La aplicacion debe cumplir con los siguientes requisitos minimos.
-
-### 1. Autenticacion
-
-La aplicacion debe permitir:
-
-- Registro con email y contrasena.
-- Inicio de sesion con email y contrasena.
-- Inicio de sesion con Google.
-- Cierre de sesion.
-- Proteccion de rutas privadas.
-
-Las rutas internas de la aplicacion no deben ser accesibles por usuarios no autenticados.
-
-### 2. Dashboard Privado
-
-La ruta `/dashboard` debe funcionar como panel principal de la SaaS.
-
-Debe mostrar informacion relevante para el usuario autenticado, por ejemplo:
-
-- Resumen general de la actividad.
-- Cantidad total de registros.
-- Ultimos registros creados.
-- Accesos directos a las acciones principales.
-- Estado general de la informacion gestionada.
-
-El dashboard debe ser especifico para la tematica elegida por el grupo.
-
-### 3. Entidad Principal
-
-Cada aplicacion debe definir al menos una entidad principal.
-
-Ejemplos:
-
-- Materias.
-- Entregas.
-- Gastos.
-- Habitos.
-- Rutinas.
-- Productos.
-- Pedidos.
-- Proyectos.
-- Clientes.
-- Publicaciones.
-- Viajes.
-- Eventos.
-- Postulaciones.
-
-La entidad debe tener campos adecuados al problema elegido. No alcanza con una entidad generica sin relacion con la propuesta.
-
-Ejemplo:
-
-```txt
-Aplicacion: Gestor de gastos compartidos
-Entidad principal: gastos
-Campos posibles: titulo, monto, categoria, fecha, pagadoPor, estado
-```
-
-### 4. ABM Completo
-
-La entidad principal debe permitir:
-
-- Alta: crear nuevos registros.
-- Baja: eliminar registros existentes.
-- Modificacion: editar registros.
-- Listado: visualizar los registros guardados.
-
-Las operaciones deben estar integradas en la interfaz de la aplicacion y deben persistir los datos en Firestore.
-
-### 5. Persistencia En Firestore
-
-Cada grupo debera utilizar Cloud Firestore como base de datos.
-
-Cada documento debe guardar la relacion con el usuario autenticado mediante su `uid`.
-
-Ejemplo de documento:
-
-```js
-{
-  userId: "uid-del-usuario",
-  title: "Entrega de Programacion",
-  description: "Resolver ejercicio integrador",
-  status: "pending",
-  createdAt: serverTimestamp(),
-  updatedAt: serverTimestamp()
-}
-```
-
-Un usuario no debe poder ver, editar ni eliminar datos pertenecientes a otro usuario.
-
-### 6. Rutas Y Componentes Propios
-
-Cada grupo debera agregar las rutas, componentes y acciones necesarias para su aplicacion.
-
-Ejemplo de estructura posible:
-
-```txt
-app/
-  dashboard/
-    page.js
-    gastos/
-      page.js
-      new/
-        page.js
-      [id]/
-        edit/
-          page.js
-
-components/
-  ExpenseForm.js
-  ExpenseList.js
-  EmptyState.js
-```
-
-Tambien puede utilizarse una estructura mas compacta:
-
-```txt
-app/
-  dashboard/
-    habits/
-      page.js
-      actions.js
-
-components/
-  HabitForm.js
-  HabitList.js
-```
-
-La estructura debe ser consistente, legible y adecuada al tamano del proyecto.
-
-### 7. Uso De Funcionalidades Server-Side
-
-El proyecto debera priorizar las capacidades server-side de Next.js.
-
-Se espera el uso de:
-
-- Server Components para paginas protegidas y listados.
-- Server Actions o Route Handlers para operaciones de escritura.
-- Firebase Admin SDK para operaciones seguras desde el servidor.
-- Client Components unicamente cuando sean necesarios para interactividad, formularios controlados o estados locales de interfaz.
-
-No se aceptara una implementacion completamente client-side si las operaciones pueden resolverse desde el servidor.
-
-### 8. Interfaz De Usuario
-
-La aplicacion debe presentar una interfaz clara, consistente y usable.
-
-Requisitos minimos de interfaz:
-
-- Dark mode coherente.
-- Navegacion interna clara.
-- Formularios comprensibles.
-- Estados vacios.
-- Mensajes de error o validacion.
-- Diseno responsive.
-- Jerarquia visual adecuada.
-- Botones y acciones consistentes.
-
-## Alcance Ampliado
-
-Los siguientes puntos constituyen funcionalidades complementarias:
-
-- Filtros o busqueda.
-- Estados para los registros, por ejemplo pendiente, activo, completado o cancelado.
-- Ordenamiento por fecha, categoria o prioridad.
-- Metricas adicionales en el dashboard.
-- Subida de archivos o imagenes.
-- Integracion con una API externa.
-- Exportacion de datos en CSV.
-- Roles simples, por ejemplo usuario y administrador.
-- Limite de uso simulado por usuario.
-- Pagina publica de presentacion del producto.
-
-## Fuera De Alcance
-
-No se requiere:
-
-- Implementar pagos reales.
-- Implementar multi-tenancy avanzado.
-- Desarrollar una aplicacion movil nativa.
-- Crear un sistema de roles complejo.
-- Implementar notificaciones push.
-- Publicar obligatoriamente en produccion.
-- Utilizar TypeScript.
-
-Estos elementos no forman parte de los requisitos minimos de aprobacion.
-
-## Entregables
-
-Cada grupo debera entregar:
-
-- Repositorio completo del proyecto.
-- README actualizado.
-- Archivo `.env.example` con las variables necesarias sin valores secretos.
-- Capturas de pantalla o breve demostracion funcional.
-- Descripcion de la entidad principal y su modelo de datos.
-
-El README final del grupo debe incluir:
-
-- Nombre de la SaaS.
-- Integrantes.
-- Descripcion del problema.
-- Usuario objetivo.
-- Funcionalidades implementadas.
-- Entidad principal y campos.
-- Rutas principales.
-- Instrucciones para ejecutar el proyecto.
-
-## Criterios De Evaluacion
-
-- Autenticacion y proteccion de rutas: 20%.
-- Modelo de datos y aislamiento por usuario: 20%.
-- ABM funcional sobre Firestore: 25%.
-- Uso adecuado de Next.js server-side: 15%.
-- Interfaz, responsive y experiencia de uso: 10%.
-- Documentacion y presentacion: 10%.
-
-## Configuracion Inicial Del Proyecto
-
-1. Instalar dependencias:
-
-```bash
-npm install
-```
-
-2. Copiar las variables de entorno:
-
-```bash
-cp .env.example .env
-```
-
-3. Completar `.env` con los datos de Firebase Web App y Firebase Admin SDK.
-
-4. En Firebase Console habilitar Authentication con:
-
-- Email/Password.
-- Google.
-
-5. Habilitar Cloud Firestore.
-
-6. Ejecutar el servidor de desarrollo:
-
-```bash
-npm run dev
-```
-
-7. Abrir la aplicacion:
-
-```txt
-http://localhost:3000
-```
-
-## Variables De Entorno
-
-Variables publicas utilizadas por el cliente:
-
-```bash
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-```
-
-Variables privadas utilizadas por Firebase Admin SDK:
-
-```bash
-FIREBASE_PROJECT_ID=
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-```
-
-La clave privada debe conservar los saltos de linea escapados mediante `\n`.
-
-El archivo `.env` no debe subirse al repositorio.
-
-## Scripts Disponibles
-
-```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-```
-
-## Implementacion Con Firestore
-
-El proyecto debe incorporar un ABM utilizando Firestore como mecanismo de persistencia.
-
-La implementacion debe incluir:
-
-- Helper server-side para Firestore Admin.
-- Coleccion correspondiente a la entidad principal.
-- Ruta dentro de `/dashboard`.
-- Formulario de creacion.
-- Listado filtrado por usuario autenticado.
-- Edicion de registros.
-- Eliminacion de registros.
-- Validacion de propiedad mediante `userId`.
-
-Este boilerplate incluye una implementacion inicial con la coleccion `items`, disponible en `/dashboard/items`.
+1. Instalar dependencias: `npm install`
+2. Copiar `.env.example` a `.env` y completar las credenciales de Firebase y de Google Maps/Places.
+3. En Firebase Console habilitar Authentication (Email/Password y Google) y Cloud Firestore.
+4. Levantar el servidor: `npm run dev`
+5. Abrir `http://localhost:3000`
