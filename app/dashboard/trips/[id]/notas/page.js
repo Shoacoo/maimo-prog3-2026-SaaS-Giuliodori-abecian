@@ -5,6 +5,8 @@ import TripHero from "@/components/trips/TripHero";
 import TripMapPanel from "@/components/trips/TripMapPanel";
 import NotesView from "@/components/trips/NotesView";
 import { SetTripPill } from "@/components/dashboard/TripPillProvider";
+import { TripPlanProvider } from "@/components/trips/TripPlanProvider";
+import { buildTripPlan } from "@/lib/trips/progress";
 
 export const dynamic = "force-dynamic";
 
@@ -23,18 +25,20 @@ export default async function TripNotesPage({ params }) {
   }
 
   return (
-    <div className="flex">
-      <SetTripPill id={trip.id} name={trip.name} />
+    <TripPlanProvider plan={buildTripPlan(trip)}>
+      <div className="flex">
+        <SetTripPill id={trip.id} name={trip.name} />
 
-      <div className="min-w-0 flex-1">
-        <TripHero trip={trip} subtitle="Organiza tus ideas y apuntes del viaje" />
+        <div className="min-w-0 flex-1">
+          <TripHero trip={trip} subtitle="Organiza tus ideas y apuntes del viaje" />
 
-        <div className="px-8 py-10 pb-32 sm:px-12">
-          <NotesView tripId={trip.id} notes={trip.notes} noteFolders={trip.noteFolders} />
+          <div className="px-8 py-10 pb-32 sm:px-12">
+            <NotesView tripId={trip.id} notes={trip.notes} noteFolders={trip.noteFolders} />
+          </div>
         </div>
-      </div>
 
-      <TripMapPanel trip={trip} />
-    </div>
+        <TripMapPanel trip={trip} />
+      </div>
+    </TripPlanProvider>
   );
 }

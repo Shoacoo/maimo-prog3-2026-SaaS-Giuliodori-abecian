@@ -36,32 +36,54 @@ function PinIcon({ className }) {
   );
 }
 
-function StopCard({ stop, order, highlighted, isLast, dragging }) {
+function StopProgress({ progress, highlighted }) {
+  if (!progress) {
+    return null;
+  }
+
+  const percent = progress.target ? Math.min(100, (progress.done / progress.target) * 100) : 0;
+  return (
+    <div className="flex w-full items-center gap-2.5 pt-1.5">
+      <div className={`h-1.5 flex-1 overflow-hidden rounded-[3px] ${highlighted ? "bg-white/30" : "bg-gray-100"}`}>
+        <div
+          className={`h-full rounded-[3px] ${highlighted ? "bg-white" : "bg-[#7386f5]"}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p className={`shrink-0 text-xs font-medium ${highlighted ? "text-white/80" : "text-gray-500"}`}>
+        {progress.done} / {progress.target} lugares
+      </p>
+    </div>
+  );
+}
+
+function StopCard({ stop, order, highlighted, isLast, dragging, progress }) {
   return (
     <div className="flex gap-5">
       <StopOrdinal order={order} highlighted={highlighted} isLast={isLast} />
 
       <div
-        className={`mb-6 flex h-28 w-full max-w-md overflow-hidden rounded-2xl shadow-md transition-shadow ${
+        className={`mb-6 flex h-28 w-full max-w-[448px] overflow-hidden rounded-2xl shadow-md transition-shadow ${
           highlighted ? "" : "border border-gray-100"
         } ${dragging ? "shadow-2xl" : ""}`}
       >
-        <div className="relative w-2/5 shrink-0 bg-gray-100">
-          {stop.image ? <Image src={stop.image} alt={stop.name} fill sizes="160px" className="object-cover" /> : null}
+        <div className="relative w-[40%] shrink-0 bg-gray-100">
+          {stop.image ? <Image src={stop.image} alt={stop.name} fill sizes="180px" className="object-cover" /> : null}
         </div>
-        <div className={`flex flex-1 flex-col justify-center gap-1 px-5 ${highlighted ? "bg-[#7386f5]" : "bg-white"}`}>
-          <p className={`text-xs font-medium ${highlighted ? "text-white/80" : "text-gray-400"}`}>Parada</p>
+        <div className={`flex min-w-0 flex-1 flex-col justify-center gap-1 px-5 ${highlighted ? "bg-[#7386f5]" : "bg-white"}`}>
+          <p className={`text-xs font-medium ${highlighted ? "text-white" : "text-gray-400"}`}>Parada</p>
           <p className={`flex items-center gap-1.5 text-lg font-bold ${highlighted ? "text-white" : "text-gray-900"}`}>
             <PinIcon className={highlighted ? "text-white" : "text-[#7386f5]"} />
-            {stop.name}
+            <span className="truncate">{stop.name}</span>
           </p>
+          <StopProgress progress={progress} highlighted={highlighted} />
         </div>
       </div>
     </div>
   );
 }
 
-function SortableStop({ stop, order, highlighted, isLast }) {
+function SortableStop({ stop, order, highlighted, isLast, progress }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -71,12 +93,13 @@ function SortableStop({ stop, order, highlighted, isLast }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing">
-      <StopCard stop={stop} order={order} highlighted={highlighted} isLast={isLast} />
+      <StopCard stop={stop} order={order} highlighted={highlighted} isLast={isLast} progress={progress} />
     </div>
   );
 }
 
-export default function TripStepper({ tripId, stops: initialStops }) {
+export default function TripStepper({ tripId, stops: initialStops, progress = [] }) {
+  const progressById = Object.fromEntries(progress.map((item) => [item.id, item]));
   const dndId = useId();
   const [stops, setStops] = useState(initialStops);
   const [activeId, setActiveId] = useState(null);
@@ -129,14 +152,28 @@ export default function TripStepper({ tripId, stops: initialStops }) {
         <SortableContext items={stops.map((stop) => stop.id)} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col">
             {stops.map((stop, index) => (
-              <SortableStop key={stop.id} stop={stop} order={index + 1} highlighted={index === 0} isLast={index === stops.length - 1} />
+              <SortableStop
+                key={stop.id}
+                stop={stop}
+                order={index + 1}
+                highlighted={index === 0}
+                isLast={index === stops.length - 1}
+                progress={progressById[stop.id]}
+              />
             ))}
           </div>
         </SortableContext>
 
         <DragOverlay>
           {activeStop ? (
-            <StopCard stop={activeStop} order={activeIndex + 1} highlighted={activeIndex === 0} isLast dragging />
+            <StopCard
+              stop={activeStop}
+              order={activeIndex + 1}
+              highlighted={activeIndex === 0}
+              isLast
+              dragging
+              progress={progressById[activeStop.id]}
+            />
           ) : null}
         </DragOverlay>
       </DndContext>

@@ -7,6 +7,8 @@ import TripHero from "@/components/trips/TripHero";
 import TripMapPanel from "@/components/trips/TripMapPanel";
 import ItineraryView from "@/components/trips/ItineraryView";
 import { SetTripPill } from "@/components/dashboard/TripPillProvider";
+import { TripPlanProvider } from "@/components/trips/TripPlanProvider";
+import { buildTripPlan } from "@/lib/trips/progress";
 
 export const dynamic = "force-dynamic";
 
@@ -51,24 +53,27 @@ export default async function TripItineraryPage({ params }) {
   const itemDetails = Object.fromEntries(detailsEntries);
 
   return (
-    <div className="flex">
-      <SetTripPill id={trip.id} name={trip.name} />
+    <TripPlanProvider plan={buildTripPlan(trip)}>
+      <div className="flex">
+        <SetTripPill id={trip.id} name={trip.name} />
 
-      <div className="min-w-0 flex-1">
-        <TripHero trip={trip} />
+        <div className="min-w-0 flex-1">
+          <TripHero trip={trip} />
 
-        <div className="px-8 py-10 pb-32 sm:px-12">
-          <ItineraryView
-            tripId={trip.id}
-            dateList={dateList}
-            itinerary={trip.itinerary}
-            cityByDate={cityByDate}
-            itemDetails={itemDetails}
-          />
+          <div className="px-8 py-10 pb-32 sm:px-12">
+            <ItineraryView
+              tripId={trip.id}
+              dateList={dateList}
+              itinerary={trip.itinerary}
+              cityByDate={cityByDate}
+              itemDetails={itemDetails}
+              favorites={trip.favorites}
+            />
+          </div>
         </div>
-      </div>
 
-      <TripMapPanel trip={trip} />
-    </div>
+        <TripMapPanel trip={trip} />
+      </div>
+    </TripPlanProvider>
   );
 }

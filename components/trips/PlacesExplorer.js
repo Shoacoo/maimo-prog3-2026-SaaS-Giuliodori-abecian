@@ -93,7 +93,7 @@ function useDescriptions(visibleIds) {
 }
 
 
-function PlaceCard({ place, description, dateList, tripId, className = "", recommended = false }) {
+function PlaceCard({ place, description, className = "", recommended = false }) {
   return (
     <div className={`flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md ${className}`}>
       <div className="relative h-36 w-full shrink-0">
@@ -117,7 +117,7 @@ function PlaceCard({ place, description, dateList, tripId, className = "", recom
         <div className="flex items-start justify-between gap-2">
           <p className="truncate font-bold text-gray-900">{place.name}</p>
           {place.rating ? (
-            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-gray-600">
+            <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[#7386f5]">
               {place.rating}
               <StarRating value={place.rating} />
             </span>
@@ -125,18 +125,40 @@ function PlaceCard({ place, description, dateList, tripId, className = "", recom
         </div>
         <p className="text-xs text-gray-500">{place.category}</p>
         <StatusLine openNow={place.openNow} />
-        {description ? <p className="text-xs text-gray-500">{description}</p> : null}
+        {description ? <p className="line-clamp-2 text-xs text-gray-500">{description}</p> : null}
         <div className="mt-auto pt-3">
-          <AddToItineraryButton place={place} dateList={dateList} tripId={tripId} />
+          <AddToItineraryButton place={place} />
         </div>
       </div>
     </div>
   );
 }
 
+// "Restaurante" -> "restaurantes", "Atraccion turistica" -> "atracciones turisticas"
+function pluralLabel(label) {
+  const [head, ...rest] = label.toLowerCase().split(" de ");
+  const plural = head
+    .split(" ")
+    .map((word) => (/[aeiou]$/.test(word) ? `${word}s` : `${word}es`))
+    .join(" ");
+  return [plural, ...rest].join(" de ");
+}
+
+function FilterChip({ label, onRemove }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#7386f5]/10 px-2 py-0.5 text-[11px] font-semibold text-[#7386f5]">
+      {label}
+      <button type="button" onClick={onRemove} aria-label={`Quitar filtro ${label}`} className="hover:text-[#4f63d9]">
+        ✕
+      </button>
+    </span>
+  );
+}
+
 const PAGE_SIZE = 30;
 
-export default function PlacesExplorer({ tripId, dateList, destinations, places, categories }) {
+export default function PlacesExplorer({ destinations, places, categories, favorites = [], initialFilter = null }) {
+  const [onlyFavorites, setOnlyFavorites] = useState(initialFilter === "favoritos");
   const [activeCity, setActiveCity] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -163,9 +185,25 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
     .sort((a, b) => (b.rating || 0) - (a.rating || 0))
     .slice(0, 8);
 
-  const filteredPlaces = places.filter(
+  const favoritePlaces = favorites.map((place) => ({
+    ...place,
+    id: place.placeId,
+    cityName: place.city,
+    type: categories.find((category) => category.label === place.category)?.type,
+  }));
+  const source = onlyFavorites ? favoritePlaces : places;
+  const filteredPlaces = source.filter(
     (place) => (!activeCity || place.cityName === activeCity) && (!activeCategory || place.type === activeCategory),
   );
+  const activeCategoryLabel = categories.find((category) => category.type === activeCategory)?.label;
+  const hasFilters = Boolean(activeCity || activeCategory || onlyFavorites);
+
+  function clearFilters() {
+    setActiveCity(null);
+    setActiveCategory(null);
+    setOnlyFavorites(false);
+    setVisibleCount(PAGE_SIZE);
+  }
 
   const visiblePlaces = filteredPlaces.slice(0, visibleCount);
   const visibleIds = Array.from(new Set([...recommendations, ...visiblePlaces].map((place) => place.id)));
@@ -187,8 +225,6 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
                   key={place.id}
                   place={place}
                   description={descriptions[place.id]}
-                  dateList={dateList}
-                  tripId={tripId}
                   className="w-72 shrink-0"
                   recommended
                 />
@@ -212,18 +248,19 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
             Paradas
             <PinIcon />
           </h2>
-          <div className="mt-4 flex flex-wrap gap-5">
+          <div className="mt-4 flex flex-wrap gap-4">
             {destinations.map((destination) => {
               const flagUrl = getFlagUrl(destination.countryCode, destination.country);
               const selected = activeCity === destination.name;
+              const dimmed = activeCity && !selected;
               return (
                 <button
                   key={destination.id || destination.name}
                   type="button"
                   onClick={() => toggleCity(destination.name)}
-                  className={`relative h-52 w-52 shrink-0 overflow-hidden rounded-3xl shadow-lg transition ${
-                    selected ? "ring-4 ring-[#7386f5]" : ""
-                  }`}
+                  className={`relative h-[152px] w-[152px] shrink-0 overflow-hidden rounded-2xl shadow-lg transition ${
+                    selected ? "ring-[3px] ring-[#7386f5]" : ""
+                  } ${dimmed ? "opacity-50" : ""}`}
                 >
                   {destination.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -232,13 +269,18 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
                     <div className="h-full w-full bg-gray-100" />
                   )}
                   <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
+                  {selected ? (
+                    <span className="absolute left-2 top-2 rounded-full bg-[#7386f5] px-2 py-0.5 text-[10px] font-semibold text-white">
+                      ✓ Filtrando
+                    </span>
+                  ) : null}
                   {flagUrl ? (
-                    <span className="absolute right-3 top-3 h-8 w-8 overflow-hidden rounded-full ring-2 ring-white">
+                    <span className="absolute right-2.5 top-2.5 h-6 w-6 overflow-hidden rounded-full ring-2 ring-white">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={flagUrl} alt={destination.country} className="h-full w-full object-cover" />
                     </span>
                   ) : null}
-                  <span className="absolute bottom-3 left-0 right-0 text-center text-lg font-bold text-white">
+                  <span className="absolute bottom-3 left-0 right-0 text-center text-base font-bold text-white">
                     {destination.name}
                   </span>
                 </button>
@@ -250,7 +292,7 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
 
       <div className="mt-10">
         <h2 className="text-xl font-bold text-gray-900">Categorías</h2>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-4 grid max-w-[800px] grid-cols-2 gap-2.5 sm:grid-cols-3">
           {categories.map((category) => {
             const active = activeCategory === category.type;
             return (
@@ -258,12 +300,14 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
                 key={category.type}
                 type="button"
                 onClick={() => toggleCategory(category.type)}
-                className={`flex h-12 items-center gap-2 rounded-xl px-4 text-sm font-medium shadow-sm transition ${
-                  active ? "bg-[#7386f5] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                className={`flex h-12 items-center gap-2 rounded-xl border px-4 text-sm font-medium shadow-sm transition ${
+                  active
+                    ? "border-[#7386f5] bg-[#7386f5] text-white"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-[#7386f5]/40"
                 }`}
               >
                 <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${active ? "bg-white" : "bg-[#7386f5]/50"}`}
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-white" : "bg-[#7386f5]/50"}`}
                   aria-hidden="true"
                 />
                 <span className="truncate">{category.label}</span>
@@ -272,19 +316,46 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
           })}
         </div>
 
+        {hasFilters ? (
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <p className="text-base font-semibold text-gray-900">
+              {filteredPlaces.length}{" "}
+              {activeCategoryLabel
+                ? filteredPlaces.length === 1
+                  ? activeCategoryLabel.toLowerCase()
+                  : pluralLabel(activeCategoryLabel)
+                : onlyFavorites
+                  ? filteredPlaces.length === 1
+                    ? "favorito"
+                    : "favoritos"
+                  : filteredPlaces.length === 1
+                    ? "lugar"
+                    : "lugares"}
+              {activeCity ? ` en ${activeCity}` : ""}
+            </p>
+            {onlyFavorites ? <FilterChip label="Favoritos" onRemove={() => setOnlyFavorites(false)} /> : null}
+            {activeCity ? <FilterChip label={activeCity} onRemove={() => toggleCity(activeCity)} /> : null}
+            {activeCategoryLabel ? (
+              <FilterChip label={activeCategoryLabel} onRemove={() => toggleCategory(activeCategory)} />
+            ) : null}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="ml-auto text-xs font-medium text-gray-500 hover:text-gray-900"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        ) : null}
+
         {filteredPlaces.length > 0 ? (
           <>
-            <p className="mt-6 text-sm text-gray-400">
-              {filteredPlaces.length} {filteredPlaces.length === 1 ? "lugar encontrado" : "lugares encontrados"}
-            </p>
-            <div className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {visiblePlaces.map((place) => (
                 <PlaceCard
                   key={place.id}
                   place={place}
                   description={descriptions[place.id]}
-                  dateList={dateList}
-                  tripId={tripId}
                 />
               ))}
             </div>
@@ -293,15 +364,19 @@ export default function PlacesExplorer({ tripId, dateList, destinations, places,
                 <button
                   type="button"
                   onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
-                  className="h-11 rounded-full bg-gray-100 px-6 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-200"
+                  className="h-10 rounded-full border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 shadow-md transition hover:bg-gray-50"
                 >
-                  Cargar mas lugares
+                  Ver más
                 </button>
               </div>
             ) : null}
           </>
         ) : (
-          <p className="mt-6 text-sm text-gray-400">No hay lugares que coincidan con estos filtros.</p>
+          <p className="mt-6 text-sm text-gray-400">
+            {onlyFavorites && favorites.length === 0
+              ? "Todavía no guardaste favoritos en este viaje."
+              : "No hay lugares que coincidan con estos filtros."}
+          </p>
         )}
       </div>
     </div>

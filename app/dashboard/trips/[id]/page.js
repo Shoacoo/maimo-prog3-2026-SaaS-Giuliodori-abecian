@@ -2,10 +2,16 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { getUserTrip } from "@/lib/trips/trips";
+import { listTripDates } from "@/lib/trips/dates";
+import { planningProgress, itineraryPlaceIds, buildTripPlan } from "@/lib/trips/progress";
 import TripStepper from "@/components/trips/TripStepper";
 import TripHero from "@/components/trips/TripHero";
 import TripMapPanel from "@/components/trips/TripMapPanel";
+import PlanningCard from "@/components/trips/info/PlanningCard";
+import CompanionsCard from "@/components/trips/info/CompanionsCard";
+import FavoritesSection from "@/components/trips/info/FavoritesSection";
 import { SetTripPill } from "@/components/dashboard/TripPillProvider";
+import { TripPlanProvider } from "@/components/trips/TripPlanProvider";
 
 function ListIcon() {
   return (
@@ -39,28 +45,49 @@ export default async function TripDetailPage({ params }) {
     notFound();
   }
 
+  const progress = planningProgress(trip);
+  const dateList = listTripDates(trip.startDate, trip.endDate);
+
   return (
-    <div className="flex">
-      <SetTripPill id={trip.id} name={trip.name} />
+    <TripPlanProvider plan={buildTripPlan(trip)}>
+      <div className="flex">
+        <SetTripPill id={trip.id} name={trip.name} />
 
-      <div className="min-w-0 flex-1">
-        <TripHero trip={trip} />
+        <div className="min-w-0 flex-1">
+          <TripHero trip={trip} />
 
-        <div className="px-8 py-10 pb-32 sm:px-12">
-          <TripStepper tripId={trip.id} stops={trip.destinations} />
+          <div className="flex flex-col gap-8 px-8 pt-10 sm:px-12 xl:flex-row">
+            <div className="shrink-0 xl:w-[448px] xl:pb-16">
+              <TripStepper tripId={trip.id} stops={trip.destinations} progress={progress.stops} />
 
-          <Link
-            href={`/dashboard/trips/${trip.id}/itinerario`}
-            className="inline-flex h-12 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white transition hover:bg-[#5f70e0]"
-          >
-            <ListIcon />
-            Ver todo el itinerario
-            <ChevronRightIcon />
-          </Link>
+              <Link
+                href={`/dashboard/trips/${trip.id}/itinerario`}
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#7386f5] px-6 text-sm font-semibold text-white transition hover:bg-[#5f70e0]"
+              >
+                <ListIcon />
+                Ver todo el itinerario
+                <ChevronRightIcon />
+              </Link>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-5">
+              <PlanningCard progress={progress} favoritesCount={trip.favorites.length} />
+              <CompanionsCard tripId={trip.id} companions={trip.companions} />
+            </div>
+          </div>
+
+          <div className="px-8 pb-32 pt-10 sm:px-12">
+            <FavoritesSection
+              tripId={trip.id}
+              favorites={trip.favorites}
+              inItinerary={itineraryPlaceIds(trip)}
+              dateList={dateList}
+            />
+          </div>
         </div>
-      </div>
 
-      <TripMapPanel trip={trip} />
-    </div>
+        <TripMapPanel trip={trip} />
+      </div>
+    </TripPlanProvider>
   );
 }
