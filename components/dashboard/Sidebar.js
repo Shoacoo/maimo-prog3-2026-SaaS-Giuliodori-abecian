@@ -11,6 +11,7 @@ const NAV_SECTIONS = [
     label: "Resumen",
     children: [
       { label: "Mis viajes", href: "/dashboard/trips" },
+      { label: "Mi mundo", href: "/dashboard/mundo" },
       { label: "Lugares para visitar", href: (tripId) => `/dashboard/trips/${tripId}/lugares`, requiresTrip: true },
       { label: "Notas", href: (tripId) => `/dashboard/trips/${tripId}/notas`, requiresTrip: true },
     ],
