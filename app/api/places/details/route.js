@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { placePhotoUrl } from "@/lib/places/photoUrl";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -39,6 +40,6 @@ export async function GET(request) {
     countryCode,
     lat: result.geometry?.location?.lat,
     lng: result.geometry?.location?.lng,
-    image: photoRef ? `/api/places/photo?ref=${encodeURIComponent(photoRef)}` : null,
+    image: photoRef ? placePhotoUrl(photoRef, placeId) : null,
   });
 }
