@@ -124,6 +124,24 @@ const FILTER_GROUPS = [
 ];
 
 let librariesPromise = null;
+const MAP_ERROR_EVENT = "triphy:google-maps-auth-failure";
+
+// Google llama a window.gm_authFailure cuando rechaza la key (facturacion
+// desactivada, key invalida, referrer no permitido, API no habilitada).
+// Lo reenviamos como evento para que cada mapa muestre un aviso propio en
+// vez del cartel gris de Google.
+function listenForAuthFailure(onFailure) {
+  if (typeof window === "undefined") return () => {};
+  if (!window.gm_authFailure) {
+    window.gm_authFailure = () => {
+      window.__triphyMapsAuthFailed = true;
+      window.dispatchEvent(new Event(MAP_ERROR_EVENT));
+    };
+  }
+  if (window.__triphyMapsAuthFailed) onFailure();
+  window.addEventListener(MAP_ERROR_EVENT, onFailure);
+  return () => window.removeEventListener(MAP_ERROR_EVENT, onFailure);
+}
 
 function loadLibraries() {
   if (!librariesPromise) {
@@ -131,6 +149,9 @@ function loadLibraries() {
       setOptions({ key: API_KEY, v: "weekly" });
       const [mapsLib, routesLib] = await Promise.all([importLibrary("maps"), importLibrary("routes")]);
       return { ...mapsLib, ...routesLib };
+    });
+    librariesPromise.catch(() => {
+      librariesPromise = null;
     });
   }
 
@@ -376,6 +397,7 @@ export default function GoogleMap({
   const [placeDetails, setPlaceDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [mapError, setMapError] = useState(false);
 
   function handleSelectPlace(place) {
     setSelectedPlace(place);
@@ -413,8 +435,18 @@ export default function GoogleMap({
     }
 
     let cancelled = false;
+    const stopListening = listenForAuthFailure(() => {
+      if (!cancelled) setMapError(true);
+    });
 
-    loadLibraries().then(({ Map, DirectionsService }) => {
+    loadLibraries().catch(() => {
+      if (!cancelled) setMapError(true);
+      return null;
+    }).then((libraries) => {
+      if (!libraries) {
+        return;
+      }
+      const { Map, DirectionsService } = libraries;
       if (cancelled || !containerRef.current) {
         return;
       }
@@ -440,6 +472,7 @@ export default function GoogleMap({
 
     return () => {
       cancelled = true;
+      stopListening();
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
       routeRef.current.polyline?.setMap(null);
@@ -520,6 +553,20 @@ export default function GoogleMap({
   return (
     <div className={`relative ${className}`}>
       <div ref={containerRef} className={`h-full w-full overflow-hidden ${rounded ? "rounded-2xl" : ""}`} />
+
+      {mapError ? (
+        <div
+          className={`absolute inset-0 z-20 grid place-items-center bg-[#efebe2] px-6 text-center ${rounded ? "rounded-2xl" : ""}`}
+        >
+          <div>
+            <p className="text-sm font-semibold text-gray-700">El mapa no esta disponible en este momento</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Google Maps rechazo la API key. Revisa que el proyecto de Google Cloud tenga la facturacion activa y la
+              Maps JavaScript API habilitada.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {nextDestination ? (
         <button
