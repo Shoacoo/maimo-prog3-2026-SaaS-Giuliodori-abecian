@@ -7,6 +7,7 @@ import { formatDateRange, totalTripDays } from "@/lib/trips/dates";
 import TripCard from "@/components/trips/TripCard";
 import RouteFlags from "@/components/trips/RouteFlags";
 import GoogleMap from "@/components/map/GoogleMap";
+import { getNextDestination } from "@/lib/trips/nextDestination";
 
 export const dynamic = "force-dynamic";
 
@@ -163,8 +164,26 @@ export default async function TripsPage() {
         ) : null}
       </div>
 
+      {/* Mapa resumen: solo el próximo viaje, con sus ciudades, la ruta y "Tu
+          próximo destino". Sin filtros ni lugares cercanos (eso queda para la
+          vista del viaje). Sin viajes por venir, el mapa queda vacío. */}
       <div className="sticky top-0 hidden h-screen w-96 shrink-0 border-l border-gray-100 lg:block xl:w-120">
-        <GoogleMap className="h-full w-full" zoom={11} rounded={false} />
+        {nextTrip ? (
+          <GoogleMap
+            className="h-full w-full"
+            zoom={4}
+            rounded={false}
+            markerStyle="pill"
+            nextDestination={getNextDestination(nextTrip)}
+            markers={nextTrip.destinations.map((destination) => ({
+              lat: destination.lat,
+              lng: destination.lng,
+              label: destination.name,
+            }))}
+          />
+        ) : (
+          <GoogleMap className="h-full w-full" zoom={11} rounded={false} />
+        )}
       </div>
     </div>
   );

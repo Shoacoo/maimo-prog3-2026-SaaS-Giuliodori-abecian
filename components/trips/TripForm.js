@@ -143,6 +143,7 @@ export default function TripForm({ action }) {
   const [dates, setDates] = useState({ startDate: null, endDate: null });
   const [error, setError] = useState("");
   const [createdId, setCreatedId] = useState(null);
+  const [invites, setInvites] = useState(null);
   const [pending, startTransition] = useTransition();
 
   const sensors = useSensors(
@@ -191,7 +192,10 @@ export default function TripForm({ action }) {
     startTransition(async () => {
       try {
         const result = await action(formData);
-        if (result?.id) setCreatedId(result.id);
+        if (result?.id) {
+          setInvites(result.invites || null);
+          setCreatedId(result.id);
+        }
       } catch {
         setError("No se pudo crear el viaje. Probá de nuevo.");
       }
@@ -326,6 +330,7 @@ export default function TripForm({ action }) {
           name={name.trim()}
           destinations={destinations}
           companions={companions}
+          invites={invites}
           startDate={dates.startDate}
           endDate={dates.endDate}
         />

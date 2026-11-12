@@ -45,15 +45,21 @@ export default function WorldExplorer({ data }) {
         onSelectCity={setSelectedCity}
       />
 
-      <div className="pointer-events-none absolute left-4 top-4 z-10 grid grid-cols-3 gap-2">
+      <div
+        className={`pointer-events-none absolute left-4 top-4 z-10 grid gap-2 ${
+          stats.exploringCountries ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
+        }`}
+      >
+        {stats.exploringCountries ? <Stat value={stats.exploringCountries} label="Explorando ahora" /> : null}
         <Stat value={stats.visitedCountries} label="Paises visitados" />
         <Stat value={stats.cities} label="Ciudades" />
         <Stat value={stats.trips} label="Viajes" />
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-10 hidden gap-4 rounded-full bg-white/10 px-4 py-2 text-xs text-white/80 backdrop-blur sm:flex">
+        <LegendDot color="#F5A524" label="Explorando" />
         <LegendDot color="#7CBE66" label="Visitado" />
-        <LegendDot color="#9E5941" label="Planificado" />
+        <LegendDot color="#7386F5" label="Planificado" />
       </div>
 
       {cities.length === 0 ? (

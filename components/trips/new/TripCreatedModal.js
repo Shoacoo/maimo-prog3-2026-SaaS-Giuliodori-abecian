@@ -38,7 +38,22 @@ const NEXT_STEPS = [
   { icon: "💰", text: "Definí el presupuesto del viaje" },
 ];
 
-export default function TripCreatedModal({ tripId, name, destinations, companions, startDate, endDate }) {
+// Texto segun el resultado real del envio de emails (actions.js -> sendTripInvites).
+function inviteMessage(companions, invites) {
+  const failed = new Set(invites?.failed || []);
+  const sentTo = companions.filter((person) => !failed.has(person.email));
+  const failedTo = companions.filter((person) => failed.has(person.email));
+  if (!failedTo.length) return { tone: "ok", text: `Enviamos la invitación por email a ${joinNames(sentTo.map(firstName))}` };
+  if (!sentTo.length) {
+    return { tone: "warn", text: `Sumaste a ${joinNames(failedTo.map(firstName))}, pero no pudimos mandar el email de invitación` };
+  }
+  return {
+    tone: "warn",
+    text: `Enviamos la invitación a ${joinNames(sentTo.map(firstName))}; no pudimos mandársela a ${joinNames(failedTo.map(firstName))}`,
+  };
+}
+
+export default function TripCreatedModal({ tripId, name, destinations, companions, invites, startDate, endDate }) {
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -75,8 +90,12 @@ export default function TripCreatedModal({ tripId, name, destinations, companion
                   <Avatar key={person.email} person={person} size={32} />
                 ))}
               </div>
-              <p className="min-w-0 flex-1 text-sm font-medium text-gray-700">
-                Enviamos la invitación a {joinNames(companions.map(firstName))}
+              <p
+                className={`min-w-0 flex-1 text-sm font-medium ${
+                  inviteMessage(companions, invites).tone === "ok" ? "text-gray-700" : "text-amber-600"
+                }`}
+              >
+                {inviteMessage(companions, invites).text}
               </p>
             </div>
           ) : null}

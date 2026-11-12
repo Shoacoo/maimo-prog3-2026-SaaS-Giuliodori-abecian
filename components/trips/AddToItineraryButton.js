@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { addPlaceToItinerary, removePlaceFromItinerary } from "@/app/dashboard/trips/actions";
 import { useTripPlan } from "@/components/trips/TripPlanProvider";
-
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
-const MINUTE_OPTIONS = ["00", "15", "30", "45"];
+import TimePicker from "@/components/trips/TimePicker";
 
 function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -72,21 +70,64 @@ export default function AddToItineraryButton({
 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [time, setTime] = useState({ hour: "", minute: "00" });
+  const [time, setTime] = useState(null);
   const [added, setAdded] = useState(null);
   const [toast, setToast] = useState(null);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [position, setPosition] = useState(null);
   const containerRef = useRef(null);
+  const popoverRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
     function handleClickOutside(event) {
-      if (containerRef.current && !containerRef.current.contains(event.target)) setOpen(false);
+      const insideButton = containerRef.current?.contains(event.target);
+      const insidePopover = popoverRef.current?.contains(event.target);
+      if (!insideButton && !insidePopover) setOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
+
+  // El popover se renderiza en un portal con posicion fija: si quedara dentro
+  // de la ficha del mapa (que tiene overflow-hidden) se cortaba o se salia del
+  // costado. Se alinea al boton y se da vuelta si no entra en la pantalla.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    function updatePosition() {
+      const anchor = containerRef.current?.getBoundingClientRect();
+      const popover = popoverRef.current;
+      if (!anchor || !popover) return;
+      const margin = 8;
+      const { offsetWidth: width, offsetHeight: height } = popover;
+      const { innerWidth, innerHeight } = window;
+
+      let left = anchor.left;
+      if (left + width > innerWidth - margin) left = anchor.right - width;
+      left = Math.min(Math.max(margin, left), innerWidth - width - margin);
+
+      const below = anchor.bottom + margin;
+      const above = anchor.top - margin - height;
+      const fitsBelow = below + height <= innerHeight - margin;
+      const fitsAbove = above >= margin;
+      let top = direction === "down" ? (fitsBelow || !fitsAbove ? below : above) : fitsAbove || !fitsBelow ? above : below;
+      top = Math.min(Math.max(margin, top), innerHeight - height - margin);
+
+      setPosition({ top, left });
+    }
+    updatePosition();
+    // Si el popover crece (por ejemplo al desplegar el selector de hora) se reacomoda.
+    const observer = new ResizeObserver(updatePosition);
+    if (popoverRef.current) observer.observe(popoverRef.current);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, direction]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -100,13 +141,15 @@ export default function AddToItineraryButton({
     const sameCity = dateList.find((date) => placeCity && cityByDate[date] === placeCity);
     setSelected(sameCity || dateList[0]);
     setError("");
+    setTime(null);
+    setPosition(null);
     setOpen((current) => !current);
   }
 
   function handleAdd() {
     if (!selected) return;
     const date = selected;
-    const chosenTime = time.hour ? `${time.hour}:${time.minute}` : null;
+    const chosenTime = time;
     setOpen(false);
     startTransition(async () => {
       try {
@@ -163,11 +206,13 @@ export default function AddToItineraryButton({
 
       {error ? <p className="mt-1.5 text-center text-xs font-medium text-red-500">{error}</p> : null}
 
-      {open ? (
+      {open ? createPortal(
         <div
-          className={`absolute left-0 z-30 w-[260px] rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-xl ${
-            direction === "down" ? "top-full mt-2" : "bottom-full mb-2"
-          }`}
+          ref={popoverRef}
+          role="dialog"
+          aria-label="Agregar al itinerario"
+          style={position ? { top: position.top, left: position.left } : { top: 0, left: 0, visibility: "hidden" }}
+          className="fixed z-[60] max-h-[calc(100vh-16px)] w-[260px] overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-xl"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -224,34 +269,7 @@ export default function AddToItineraryButton({
             })}
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-            <span className="text-gray-700">Hora (opcional)</span>
-            <span className="flex items-center gap-1">
-              <select
-                value={time.hour}
-                onChange={(event) => setTime((current) => ({ ...current, hour: event.target.value }))}
-                className="rounded-md border border-gray-200 px-1.5 py-1 text-xs"
-                aria-label="Hora"
-              >
-                <option value="">--</option>
-                {HOUR_OPTIONS.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-              :
-              <select
-                value={time.minute}
-                disabled={!time.hour}
-                onChange={(event) => setTime((current) => ({ ...current, minute: event.target.value }))}
-                className="rounded-md border border-gray-200 px-1.5 py-1 text-xs disabled:opacity-50"
-                aria-label="Minutos"
-              >
-                {MINUTE_OPTIONS.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-            </span>
-          </div>
+          <TimePicker value={time} onChange={setTime} className="mt-3" />
 
           <button
             type="button"
@@ -261,7 +279,8 @@ export default function AddToItineraryButton({
           >
             {selected ? `Agregar al ${longWeekday(selected)} ${dateObj(selected).getDate()}` : "Elegí un día"}
           </button>
-        </div>
+        </div>,
+        document.body,
       ) : null}
 
       {toast ? <Toast toast={toast} onUndo={handleUndo} /> : null}

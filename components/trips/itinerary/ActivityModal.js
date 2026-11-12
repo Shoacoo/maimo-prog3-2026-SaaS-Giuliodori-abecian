@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import TimePicker from "@/components/trips/TimePicker";
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
 const MINUTE_OPTIONS = ["00", "15", "30", "45"];
@@ -25,7 +26,7 @@ const fieldClass =
 export default function ActivityModal({ item, date, dateList, details, onCancel, onSave, onRemove }) {
   const [hour, minute] = (item.time || "").split(":");
   const [day, setDay] = useState(date);
-  const [time, setTime] = useState({ hour: HOUR_OPTIONS.includes(hour) ? hour : "", minute: MINUTE_OPTIONS.includes(minute) ? minute : "00" });
+  const [time, setTime] = useState(HOUR_OPTIONS.includes(hour) && MINUTE_OPTIONS.includes(minute) ? `${hour}:${minute}` : null);
   const [description, setDescription] = useState(item.description || details?.description || "");
   const [note, setNote] = useState(item.note || "");
   const [extras, setExtras] = useState(null);
@@ -105,35 +106,7 @@ export default function ActivityModal({ item, date, dateList, details, onCancel,
             </label>
             <div className="flex flex-col gap-1.5 text-xs font-medium text-gray-900">
               Hora
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={time.hour}
-                  onChange={(event) => setTime((current) => ({ ...current, hour: event.target.value }))}
-                  className={fieldClass}
-                  aria-label="Hora"
-                >
-                  <option value="">--</option>
-                  {HOUR_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-gray-400">:</span>
-                <select
-                  value={time.minute}
-                  disabled={!time.hour}
-                  onChange={(event) => setTime((current) => ({ ...current, minute: event.target.value }))}
-                  className={`${fieldClass} disabled:opacity-50`}
-                  aria-label="Minutos"
-                >
-                  {MINUTE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <TimePicker value={time} onChange={setTime} label={null} />
             </div>
           </div>
 
@@ -192,7 +165,7 @@ export default function ActivityModal({ item, date, dateList, details, onCancel,
               onClick={() =>
                 onSave({
                   date: day,
-                  time: time.hour ? `${time.hour}:${time.minute}` : "",
+                  time: time || "",
                   note,
                   description,
                 })

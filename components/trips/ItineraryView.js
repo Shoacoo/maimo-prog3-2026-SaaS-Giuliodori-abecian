@@ -105,7 +105,7 @@ function ChevronDownIcon({ open }) {
 
 function TrashIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
       <path
         d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0 1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"
         stroke="currentColor"
@@ -160,7 +160,7 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
   return (
     <div className="flex gap-4">
       <StopOrdinal order={order} highlighted={false} isLast={isLast} />
-      <div className="mb-4 flex flex-1 items-stretch gap-3">
+      <div className="mb-4 flex flex-1">
         <div
           className={`flex h-44 flex-1 overflow-hidden rounded-2xl border-2 border-[#7386f5] bg-white shadow-md transition-shadow ${
             dragging ? "shadow-2xl" : ""
@@ -168,40 +168,51 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
         >
           <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-5">
             <div className="flex items-start justify-between gap-2">
-              <p className="font-semibold text-gray-900">{item.name}</p>
-              {onEdit ? (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  aria-label={`Editar ${item.name}`}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#7386f5] text-white shadow-md transition hover:bg-[#5f70e0]"
-                >
-                  <PencilIcon />
-                </button>
-              ) : null}
+              <p className="min-w-0 font-semibold text-gray-900">{item.name}</p>
+              {/* Editar y quitar juntos y chicos, arriba a la derecha de la card. */}
+              <div className="flex shrink-0 items-center gap-1.5">
+                {onEdit ? (
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    aria-label={`Editar ${item.name}`}
+                    title="Editar"
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[#7386f5] text-white shadow-md transition hover:bg-[#5f70e0]"
+                  >
+                    <PencilIcon />
+                  </button>
+                ) : null}
+                {onRemove ? (
+                  <button
+                    type="button"
+                    onClick={onRemove}
+                    aria-label={`Quitar ${item.name}`}
+                    title="Quitar del itinerario"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-red-200 bg-white text-red-500 transition hover:border-red-500 hover:bg-red-500 hover:text-white"
+                  >
+                    <TrashIcon />
+                  </button>
+                ) : null}
+              </div>
             </div>
             {item.time ? <p className="text-xs font-semibold text-[#7386f5]">{formatTime(item.time)}</p> : null}
             {item.description || details?.description ? (
-              <p className="line-clamp-2 text-sm text-gray-600">{item.description || details.description}</p>
+              // Sin horario, la descripcion se separa un poco mas del titulo y los botones.
+              <p className={`line-clamp-2 text-sm text-gray-600 ${item.time ? "" : "mt-2.5"}`}>
+                {item.description || details.description}
+              </p>
             ) : null}
-            <StatusLine details={details} />
             {item.note ? <p className="line-clamp-1 text-xs italic text-gray-500">“{item.note}”</p> : null}
+            {/* Abierto/Cerrado siempre abajo a la izquierda, haya o no descripcion. */}
+            <div className="mt-auto">
+              <StatusLine details={details} />
+            </div>
           </div>
           {item.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={item.image} alt={item.name} className="w-40 shrink-0 object-cover" />
           ) : null}
         </div>
-        {onRemove ? (
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Quitar ${item.name}`}
-            className="flex w-14 shrink-0 items-center justify-center rounded-2xl bg-red-400 text-white shadow-md transition hover:bg-red-500"
-          >
-            <TrashIcon />
-          </button>
-        ) : null}
       </div>
     </div>
   );

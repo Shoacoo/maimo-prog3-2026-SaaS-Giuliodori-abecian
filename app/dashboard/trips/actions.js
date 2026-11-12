@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
+import { sendTripInvites } from "@/lib/email/tripInvite";
 import {
   createUserTrip,
   deleteUserTrip,
@@ -20,7 +22,13 @@ import {
   reorderNotes,
   toggleTripFavorite,
   addTripCompanion,
+  getUserTrip,
+  removeMemoryPhoto,
+  saveMemoryEntry,
+  deleteMemoryEntry,
 } from "@/lib/trips/trips";
+import { deletePhotoFile } from "@/lib/memories/photoStore";
+import { sanitizeEntry } from "@/lib/memories/validation";
 
 const NOTE_COLOR_IDS = new Set(["yellow", "rose", "sky", "violet"]);
 
@@ -58,6 +66,25 @@ function parseDestinations(raw) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// URL publica de la app para los links de los emails: NEXT_PUBLIC_APP_URL si
+// esta definida, si no la del request actual (sirve en localhost y en Vercel).
+async function getAppUrl() {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") || headerList.get("host");
+  const protocol = headerList.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
+}
+
+async function inviteCompanions(user, trip, companions) {
+  return sendTripInvites({
+    trip,
+    inviter: { email: user.email, name: user.name },
+    companions,
+    appUrl: await getAppUrl(),
+  });
+}
 
 function parseCompanions(raw) {
   let parsed;
@@ -131,8 +158,10 @@ export async function addCompanionToTrip(tripId, person) {
   if (!companion) {
     throw new Error("El email no es valido.");
   }
-  await addTripCompanion(user.uid, tripId, companion);
+  const trip = await addTripCompanion(user.uid, tripId, companion);
   revalidatePath(`/dashboard/trips/${tripId}`);
+  if (!trip) return { invites: { sent: [], failed: [] } };
+  return { invites: await inviteCompanions(user, trip, [companion]) };
 }
 
 export async function createTrip(formData) {
@@ -143,9 +172,12 @@ export async function createTrip(formData) {
 
   // El formulario muestra el modal "viaje creado" (diseño 03e), asi que
   // devolvemos el id en vez de redirigir.
-  const id = await createUserTrip(user.uid, parseTripForm(formData));
+  const trip = parseTripForm(formData);
+  const id = await createUserTrip(user.uid, trip);
   revalidatePath("/dashboard/trips");
-  return { id };
+  // Invitaciones por email a los compañeros (si falla el envio, el viaje igual queda creado).
+  const invites = await inviteCompanions(user, trip, trip.companions);
+  return { id, invites };
 }
 
 export async function deleteTrip(tripId) {
@@ -343,4 +375,44 @@ export async function reorderNotesAction(tripId, orderedIds) {
 
   await reorderNotes(user.uid, tripId, orderedIds);
   revalidatePath(`/dashboard/trips/${tripId}/notas`);
+}
+
+// --- Recuerdos ---
+// Las fotos se suben por un Route Handler (app/api/trips/[id]/memories/photos)
+// para poder mostrar el progreso de cada archivo; borrar fotos y la bitacora
+// van por Server Actions como el resto del viaje.
+
+async function requireOwnedTrip(tripId) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+  const trip = await getUserTrip(user.uid, tripId);
+  if (!trip) {
+    throw new Error("Viaje no encontrado.");
+  }
+  return { user, trip };
+}
+
+export async function deleteMemoryPhotoAction(tripId, photoId) {
+  const { user } = await requireOwnedTrip(tripId);
+  const removed = await removeMemoryPhoto(user.uid, tripId, String(photoId));
+  if (removed) {
+    await deletePhotoFile(String(photoId));
+  }
+  revalidatePath(`/dashboard/trips/${tripId}/recuerdos`);
+}
+
+export async function saveMemoryEntryAction(tripId, entry) {
+  const { user, trip } = await requireOwnedTrip(tripId);
+  const clean = sanitizeEntry(trip, entry || {});
+  const saved = await saveMemoryEntry(user.uid, tripId, { ...clean, id: entry?.id ? String(entry.id) : undefined });
+  revalidatePath(`/dashboard/trips/${tripId}/recuerdos`);
+  return saved;
+}
+
+export async function deleteMemoryEntryAction(tripId, entryId) {
+  const { user } = await requireOwnedTrip(tripId);
+  await deleteMemoryEntry(user.uid, tripId, String(entryId));
+  revalidatePath(`/dashboard/trips/${tripId}/recuerdos`);
 }

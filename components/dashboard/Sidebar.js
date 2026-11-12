@@ -29,6 +29,13 @@ const NAV_SECTIONS = [
     label: "Presupuesto",
     children: [{ label: "Gastos", href: "/dashboard/proximamente", requiresTrip: true }],
   },
+  {
+    id: "recuerdos",
+    label: "Recuerdos",
+    children: [
+      { label: "Fotos y bitácora", href: (tripId) => `/dashboard/trips/${tripId}/recuerdos`, requiresTrip: true },
+    ],
+  },
 ];
 
 function HamburgerIcon() {

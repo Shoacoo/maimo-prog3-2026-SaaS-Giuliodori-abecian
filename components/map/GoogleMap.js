@@ -39,6 +39,29 @@ const MAP_STYLES = [
   { featureType: "water", elementType: "all", stylers: [{ color: "#a5d7e0" }] },
 ];
 
+// Nombres de calles segun el zoom: lejos no aparecen; desde MAIN_ROADS_ZOOM
+// se ven avenidas y calles principales, y desde ALL_ROADS_ZOOM todas. Gris
+// calido y sin iconos de ruta, para que acompañen sin molestar.
+const MAIN_ROADS_ZOOM = 14;
+const ALL_ROADS_ZOOM = 16;
+const ROAD_LABEL_LOOK = [
+  { elementType: "labels", stylers: [{ visibility: "on" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#9a948a" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#f7f5f0" }, { weight: 3 }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+];
+
+function roadLabelLevel(zoom) {
+  if (zoom >= ALL_ROADS_ZOOM) return "all";
+  if (zoom >= MAIN_ROADS_ZOOM) return "main";
+  return "none";
+}
+
+function stylesForLevel(level) {
+  const roadTypes = level === "all" ? ["road"] : level === "main" ? ["road.highway", "road.arterial"] : [];
+  return [...MAP_STYLES, ...roadTypes.flatMap((featureType) => ROAD_LABEL_LOOK.map((rule) => ({ featureType, ...rule })))];
+}
+
 function BedIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
@@ -510,9 +533,21 @@ export default function GoogleMap({
       mapRef.current = new Map(containerRef.current, {
         center: { lat: initialCenter.lat, lng: initialCenter.lng },
         zoom,
-        styles: MAP_STYLES,
+        styles: stylesForLevel(roadLabelLevel(zoom)),
         disableDefaultUI: true,
         zoomControl: true,
+        // "greedy": la ruedita hace zoom directo, sin tener que mantener Ctrl
+        // (el modo por defecto "cooperative" lo pide cuando la pagina scrollea).
+        gestureHandling: "greedy",
+      });
+
+      // Solo se re-estiliza el mapa cuando cambia el nivel (no en cada paso de zoom).
+      let labelLevel = roadLabelLevel(zoom);
+      mapRef.current.addListener("zoom_changed", () => {
+        const nextLevel = roadLabelLevel(mapRef.current.getZoom());
+        if (nextLevel === labelLevel) return;
+        labelLevel = nextLevel;
+        mapRef.current.setOptions({ styles: stylesForLevel(nextLevel) });
       });
 
       renderMarkers(mapRef.current, markersData.current, markersRef, markerStyle);

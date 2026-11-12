@@ -8,7 +8,14 @@ import { MeshPhongMaterial } from "three";
 const OCEAN = "#143DA6";
 const LAND = "#E7D6C2";
 const VISITED = "#7CBE66";
-const PLANNED = "#9E5941";
+// Planificado: el celeste del logo de Triphy.
+const PLANNED = "#7386F5";
+// Ciudad elegida: oscura, para que se vea sobre cualquier color de país.
+const SELECTED = "#111827";
+// Viaje en curso: dorado, para diferenciarlo de lo ya visitado (verde).
+const EXPLORING = "#F5A524";
+
+const STATUS_SUFFIX = { exploring: " · explorando ahora", visited: " · visitado", planned: " · planificado" };
 
 export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSelectCity }) {
   const containerRef = useRef(null);
@@ -19,7 +26,7 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
 
   const countryStatus = useMemo(() => {
     const map = new Map();
-    countries.forEach((country) => map.set(country.code, country.visited ? "visited" : "planned"));
+    countries.forEach((country) => map.set(country.code, country.status || "planned"));
     return map;
   }, [countries]);
 
@@ -76,8 +83,9 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
 
   function polygonColor(feature) {
     const status = countryStatus.get(feature.properties.iso);
+    if (status === "exploring") return EXPLORING;
     if (status === "visited") return VISITED;
-    if (status === "planned") return "rgba(158, 89, 65, 0.75)";
+    if (status === "planned") return PLANNED;
     return feature === hoverCountry ? "#F3E9DD" : LAND;
   }
 
@@ -102,7 +110,7 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
           polygonsTransitionDuration={200}
           polygonLabel={(feature) => {
             const status = countryStatus.get(feature.properties.iso);
-            const suffix = status === "visited" ? " · visitado" : status === "planned" ? " · planificado" : "";
+            const suffix = STATUS_SUFFIX[status] || "";
             return `<div style="padding:4px 8px;border-radius:8px;background:#fff;color:#1f2937;font:500 12px Rubik,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)">${countryName(feature)}${suffix}</div>`;
           }}
           onPolygonHover={setHoverCountry}
@@ -111,7 +119,13 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
             if (city) onSelectCity(city);
           }}
           arcsData={arcs}
-          arcColor={(arc) => (arc.status === "planificado" ? [PLANNED, "#E7D6C2"] : ["#ffffff", VISITED])}
+          arcColor={(arc) =>
+            arc.status === "planificado"
+              ? ["#ffffff", PLANNED]
+              : arc.status === "en-curso"
+                ? ["#ffffff", EXPLORING]
+                : ["#ffffff", VISITED]
+          }
           arcStroke={0.5}
           arcAltitudeAutoScale={0.4}
           arcDashLength={0.5}
@@ -121,11 +135,11 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
           pointsData={cities}
           pointLat="lat"
           pointLng="lng"
-          pointColor={(city) => (city.key === selectedCity?.key ? PLANNED : "#ffffff")}
+          pointColor={(city) => (city.key === selectedCity?.key ? SELECTED : city.status === "exploring" ? EXPLORING : "#ffffff")}
           pointAltitude={(city) => (city.key === selectedCity?.key ? 0.08 : 0.03)}
-          pointRadius={0.6}
+          pointRadius={(city) => (city.key === selectedCity?.key ? 0.85 : 0.6)}
           pointsMerge={false}
-          pointLabel={(city) => `<div style="padding:4px 8px;border-radius:8px;background:#fff;color:#1f2937;font:600 12px Rubik,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)">${escapeHtml(city.name)}</div>`}
+          pointLabel={(city) => `<div style="padding:4px 8px;border-radius:8px;background:#fff;color:#1f2937;font:600 12px Rubik,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)">${escapeHtml(city.name)}${city.status === "exploring" ? " · explorando ahora" : ""}</div>`}
           onPointClick={onSelectCity}
           labelsData={cities}
           labelLat="lat"
@@ -133,7 +147,7 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
           labelText="name"
           labelSize={0.9}
           labelDotRadius={0.35}
-          labelColor={() => "#ffffff"}
+          labelColor={(city) => (city.status === "exploring" ? EXPLORING : "#ffffff")}
           labelAltitude={0.012}
           labelResolution={2}
           onLabelClick={onSelectCity}

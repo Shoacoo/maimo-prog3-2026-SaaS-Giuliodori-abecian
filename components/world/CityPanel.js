@@ -6,8 +6,8 @@ import { formatDateRange } from "@/lib/trips/dates";
 
 const STATUS_LABEL = {
   realizado: { text: "Realizado", className: "bg-[#7CBE66]/15 text-[#4f8a3c]" },
-  "en-curso": { text: "En curso", className: "bg-[#143DA6]/10 text-[#143DA6]" },
-  planificado: { text: "Planificado", className: "bg-[#9E5941]/10 text-[#9E5941]" },
+  "en-curso": { text: "Explorando ahora", className: "bg-[#F5A524]/15 text-[#b9770e]" },
+  planificado: { text: "Planificado", className: "bg-[#7386F5]/12 text-[#5f70e0]" },
 };
 
 export default function CityPanel({ city, onClose }) {
@@ -70,16 +70,56 @@ export default function CityPanel({ city, onClose }) {
                     <Link href={`/dashboard/trips/${trip.id}/notas`} className="text-[#143DA6] hover:underline">
                       Notas
                     </Link>
+                    <Link href={`/dashboard/trips/${trip.id}/recuerdos`} className="text-[#143DA6] hover:underline">
+                      Recuerdos
+                    </Link>
                   </div>
                 </li>
               );
             })}
           </ul>
 
-          <div className="mt-5 rounded-xl border border-dashed border-[#E7D6C2] bg-[#E7D6C2]/20 p-4 text-center">
-            <p className="text-sm font-medium text-gray-700">Recuerdos</p>
-            <p className="mt-1 text-xs text-gray-500">Pronto vas a poder subir fotos y recuerdos de esta ciudad.</p>
-          </div>
+          {city.photos?.length ? (
+            <div className="mt-5">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Recuerdos</h3>
+                <span className="text-xs text-gray-400">
+                  {city.photoCount} {city.photoCount === 1 ? "foto" : "fotos"}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {city.photos.map((photo) => (
+                  <Link
+                    key={photo.id}
+                    href={`/dashboard/trips/${photo.tripId}/recuerdos`}
+                    className="aspect-square overflow-hidden rounded-lg bg-gray-100"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover transition hover:scale-105" />
+                  </Link>
+                ))}
+              </div>
+              <Link
+                href={`/dashboard/trips/${city.memoriesTripId}/recuerdos`}
+                className="mt-2 inline-block text-xs font-semibold text-[#143DA6] hover:underline"
+              >
+                Ver todos los recuerdos →
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-[#E7D6C2] bg-[#E7D6C2]/20 p-4 text-center">
+              <p className="text-sm font-medium text-gray-700">Recuerdos</p>
+              <p className="mt-1 text-xs text-gray-500">Todavía no subiste fotos de esta ciudad.</p>
+              {city.trips[0] ? (
+                <Link
+                  href={`/dashboard/trips/${city.trips[0].id}/recuerdos`}
+                  className="mt-2 inline-block text-xs font-semibold text-[#143DA6] hover:underline"
+                >
+                  Subir fotos →
+                </Link>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </aside>

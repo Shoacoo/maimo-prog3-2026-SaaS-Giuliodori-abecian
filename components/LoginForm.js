@@ -6,15 +6,35 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signOut,
   updateProfile,
 } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getClientAuth, getGoogleProvider } from "@/lib/firebase/client";
 import heroImage from "@/public/login-hero.jpg";
+
+// Las cuentas con email/contraseña tienen que verificar el email antes de
+// entrar; las de Google ya vienen verificadas por Google.
+function needsVerification(user) {
+  return !user.emailVerified && user.providerData.some((provider) => provider.providerId === "password");
+}
+
+// Manda el email de verificacion de Firebase. El enlace vuelve a /login con
+// un aviso de "cuenta verificada"; si el dominio no esta autorizado en
+// Firebase como URL de retorno, se manda igual pero sin ese redireccionamiento.
+async function sendVerification(user) {
+  try {
+    await sendEmailVerification(user, { url: `${window.location.origin}/login?verified=1` });
+  } catch (err) {
+    if (err?.code !== "auth/unauthorized-continue-uri" && err?.code !== "auth/invalid-continue-uri") throw err;
+    await sendEmailVerification(user);
+  }
+}
 
 async function persistSession(user) {
   const idToken = await user.getIdToken();
@@ -180,6 +200,9 @@ function mapAuthError(err, mode) {
   if (code === "auth/popup-closed-by-user") {
     return {};
   }
+  if (code === "auth/network-request-failed") {
+    return { alert: "No hay conexión. Revisá tu internet y probá de nuevo." };
+  }
   return { alert: mode === "signup" ? "No pudimos crear tu cuenta. Probá de nuevo." : "No pudimos iniciar sesión. Revisá tus datos." };
 }
 
@@ -187,8 +210,12 @@ export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextUrl = searchParams.get("next") || "/dashboard/trips";
+  const justVerified = searchParams.get("verified") === "1";
   // signin | signup | forgot | sent
   const [mode, setMode] = useState("signin");
+  // Que mando la pantalla "Revisá tu correo": reset (recuperar contraseña),
+  // verify (recien registrado) o unverified (intento entrar sin verificar).
+  const [sentKind, setSentKind] = useState("reset");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -220,6 +247,35 @@ export default function LoginForm() {
     router.refresh();
   }
 
+  function showSent(kind, cooldown = RESEND_SECONDS) {
+    setSentKind(kind);
+    setMode("sent");
+    setErrors({});
+    setResendIn(cooldown);
+  }
+
+  // Desde "Revisá tu correo" se vuelve al login cerrando la sesion de Firebase
+  // del cliente (la cuenta sin verificar queda logueada solo para poder reenviar).
+  async function backToSignIn() {
+    if (sentKind !== "reset") await signOut(getClientAuth()).catch(() => {});
+    goTo("signin");
+  }
+
+  async function resend() {
+    if (sentKind === "reset") return sendResetLink();
+    const user = getClientAuth().currentUser;
+    if (!user) return goTo("signin");
+    setLoading(true);
+    try {
+      await sendVerification(user);
+      showSent(sentKind);
+    } catch (err) {
+      setErrors(mapAuthError(err, "signup"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSignIn(event) {
     event.preventDefault();
     const nextErrors = {};
@@ -234,7 +290,12 @@ export default function LoginForm() {
     setErrors({});
     try {
       await applyPersistence();
-      await finishLogin(await signInWithEmailAndPassword(getClientAuth(), email, password));
+      const credential = await signInWithEmailAndPassword(getClientAuth(), email, password);
+      if (needsVerification(credential.user)) {
+        showSent("unverified", 0);
+        return;
+      }
+      await finishLogin(credential);
     } catch (err) {
       setErrors(mapAuthError(err, "signin"));
     } finally {
@@ -261,7 +322,15 @@ export default function LoginForm() {
       await applyPersistence();
       const credential = await createUserWithEmailAndPassword(getClientAuth(), email, password);
       await updateProfile(credential.user, { displayName: name.trim() });
-      await finishLogin(credential);
+      // No entra directo: primero tiene que confirmar el email (diseño "Revisá tu correo").
+      try {
+        await sendVerification(credential.user);
+        showSent("verify");
+      } catch {
+        // La cuenta ya se creo: mostramos la pantalla igual para que pueda reenviar.
+        showSent("verify", 0);
+        setErrors({ alert: "Creamos tu cuenta pero no pudimos mandar el email. Tocá Reenviar." });
+      }
     } catch (err) {
       setErrors(mapAuthError(err, "signup"));
     } finally {
@@ -293,8 +362,7 @@ export default function LoginForm() {
     setErrors({});
     try {
       await sendPasswordResetEmail(getClientAuth(), email);
-      setMode("sent");
-      setResendIn(RESEND_SECONDS);
+      showSent("reset");
     } catch (err) {
       setErrors(mapAuthError(err, "forgot"));
     } finally {
@@ -359,12 +427,18 @@ export default function LoginForm() {
               {mode === "signin" && "Bienvenido de vuelta viajero!"}
               {mode === "signup" && "Creá tu cuenta, viajero!"}
               {mode === "forgot" && "¿Olvidaste tu contraseña?"}
-              {mode === "sent" && "¡Revisá tu correo! 📬"}
+              {mode === "sent" && (sentKind === "unverified" ? "Verificá tu email 📬" : "¡Revisá tu correo! 📬")}
             </h1>
             <span className="mt-3 block h-1 w-10 rounded-full bg-[#7386f5]" />
 
             {mode === "signin" ? (
               <>
+                {justVerified ? (
+                  <div className="mt-6 flex items-center gap-2.5 rounded-[10px] border border-emerald-400 bg-emerald-500/8 px-3.5 py-2.5 text-[13px] font-medium text-emerald-600">
+                    <span className="font-bold">✓</span>
+                    ¡Cuenta verificada! Ya podés iniciar sesión.
+                  </div>
+                ) : null}
                 <p className="mt-8 text-sm text-gray-500">Ingresa con tu cuenta</p>
                 <Alert>{errors.alert}</Alert>
                 <form onSubmit={handleSignIn} noValidate className="mt-4 grid gap-5">
@@ -522,8 +596,12 @@ export default function LoginForm() {
             {mode === "sent" ? (
               <>
                 <p className="mt-8 text-xs text-gray-500">
-                  Enviamos un enlace a {email}. Vence en 1 hora.
+                  {sentKind === "reset" && `Enviamos un enlace a ${email}. Vence en 1 hora.`}
+                  {sentKind === "verify" && `Enviamos un enlace a ${email}. Abrilo para activar tu cuenta y después iniciá sesión.`}
+                  {sentKind === "unverified" &&
+                    `Tu cuenta todavía no está verificada. Abrí el enlace que te mandamos a ${email} o pedí uno nuevo.`}
                 </p>
+                <p className="mt-2 text-xs text-gray-400">Si no lo ves, revisá la carpeta de spam.</p>
                 <Alert>{errors.alert}</Alert>
                 <a
                   href="https://mail.google.com/"
@@ -539,12 +617,12 @@ export default function LoginForm() {
                     {resendIn > 0 ? (
                       <span className="font-medium">Reenviar en 0:{String(resendIn).padStart(2, "0")}</span>
                     ) : (
-                      <button type="button" onClick={sendResetLink} disabled={loading} className="font-medium text-[#7386f5] hover:underline">
+                      <button type="button" onClick={resend} disabled={loading} className="font-medium text-[#7386f5] hover:underline">
                         Reenviar
                       </button>
                     )}
                   </p>
-                  <BackToLogin onClick={() => goTo("signin")} />
+                  <BackToLogin onClick={backToSignIn} />
                 </div>
               </>
             ) : null}

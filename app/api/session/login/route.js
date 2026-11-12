@@ -20,6 +20,12 @@ export async function POST(request) {
       getAdminAuth().verifyIdToken(idToken),
     ]);
 
+    // Tambien se valida en servidor: una cuenta de email/contraseña sin
+    // verificar no obtiene sesion aunque se saltee el chequeo del cliente.
+    if (decoded.firebase?.sign_in_provider === "password" && !decoded.email_verified) {
+      return NextResponse.json({ error: "Email not verified." }, { status: 403 });
+    }
+
     await ensureUserDoc({
       uid: decoded.uid,
       email: decoded.email,

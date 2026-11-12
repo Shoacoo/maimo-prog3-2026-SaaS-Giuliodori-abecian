@@ -7,14 +7,18 @@ import CompanionSearch, { Avatar } from "@/components/trips/new/CompanionSearch"
 export default function CompanionsCard({ tripId, companions }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [pending, startTransition] = useTransition();
 
   function handleAdd(person) {
     setError("");
+    setNotice("");
     startTransition(async () => {
       try {
-        await addCompanionToTrip(tripId, person);
+        const result = await addCompanionToTrip(tripId, person);
         setAdding(false);
+        if (result?.invites?.sent?.length) setNotice(`Le mandamos la invitación a ${person.email}.`);
+        else if (result?.invites?.failed?.length) setError(`Lo sumamos, pero no pudimos mandarle el email a ${person.email}.`);
       } catch {
         setError("No se pudo agregar al compañero.");
       }
@@ -23,12 +27,12 @@ export default function CompanionsCard({ tripId, companions }) {
 
   return (
     <div className="flex w-full flex-col gap-3.5 rounded-2xl bg-white px-5.5 pb-5.5 pt-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <p className="text-base font-semibold text-gray-900">Compañeros de viaje</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-base font-semibold leading-snug text-gray-900">Compañeros de viaje</p>
         <button
           type="button"
           onClick={() => setAdding((current) => !current)}
-          className="text-[13px] font-semibold text-[#7386f5] hover:underline"
+          className="shrink-0 whitespace-nowrap pt-0.5 text-[13px] font-semibold text-[#7386f5] hover:underline"
         >
           {adding ? "Cancelar" : "+ Agregar"}
         </button>
@@ -40,6 +44,7 @@ export default function CompanionsCard({ tripId, companions }) {
         </div>
       ) : null}
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
+      {notice ? <p className="text-sm text-emerald-600">✓ {notice}</p> : null}
 
       {companions.length === 0 && !adding ? (
         <p className="text-sm text-gray-400">Todavía no sumaste compañeros a este viaje.</p>

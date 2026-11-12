@@ -57,7 +57,7 @@ export default async function TripDetailPage({ params }) {
           <TripHero trip={trip} />
 
           <div className="flex flex-col gap-8 px-8 pt-10 sm:px-12 xl:flex-row">
-            <div className="shrink-0 xl:w-[448px] xl:pb-16">
+            <div className="shrink-0 xl:w-[400px] xl:pb-16">
               <TripStepper tripId={trip.id} stops={trip.destinations} progress={progress.stops} />
 
               <Link
@@ -70,7 +70,7 @@ export default async function TripDetailPage({ params }) {
               </Link>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-5">
+            <div className="flex min-w-0 flex-1 flex-col gap-5 xl:min-w-[280px]">
               <PlanningCard progress={progress} favoritesCount={trip.favorites.length} />
               <CompanionsCard tripId={trip.id} companions={trip.companions} />
             </div>
