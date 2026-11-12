@@ -69,7 +69,7 @@ const COPY = {
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next") || "/dashboard";
+  const nextUrl = searchParams.get("next") || "/dashboard/trips";
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

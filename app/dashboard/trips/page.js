@@ -7,7 +7,6 @@ import { formatDateRange, totalTripDays } from "@/lib/trips/dates";
 import TripCard from "@/components/trips/TripCard";
 import RouteFlags from "@/components/trips/RouteFlags";
 import GoogleMap from "@/components/map/GoogleMap";
-import BackLink from "@/components/dashboard/BackLink";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +64,6 @@ export default async function TripsPage() {
   return (
     <div className="flex">
       <div className="flex-1 px-8 py-10 pb-32 sm:px-12">
-        <BackLink href="/" label="Inicio" />
         <span className="block h-1 w-10 rounded-full bg-[#7386f5]" />
         <h1 className="mt-4 text-4xl font-bold text-gray-900">Mis Viajes</h1>
         <p className="mt-2 text-gray-500">
