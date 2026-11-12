@@ -55,6 +55,30 @@ function parseDestinations(raw) {
   return sanitizeDestinations(parsed);
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function parseCompanions(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw || "[]");
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  const seen = new Set();
+  return parsed
+    .map((item) => ({
+      uid: item.uid ? String(item.uid) : null,
+      email: String(item.email || "").trim().toLowerCase(),
+      name: String(item.name || "").trim(),
+      photoURL: item.photoURL ? String(item.photoURL) : null,
+      status: item.uid ? "added" : "invited",
+    }))
+    .filter((item) => EMAIL_RE.test(item.email) && !seen.has(item.email) && seen.add(item.email))
+    .slice(0, 20);
+}
+
 function parseTripForm(formData) {
   const name = String(formData.get("name") || "").trim();
   const startDate = String(formData.get("startDate") || "");
@@ -77,7 +101,7 @@ function parseTripForm(formData) {
     throw new Error("La fecha de fin no puede ser anterior a la de inicio.");
   }
 
-  return { name, startDate, endDate, destinations };
+  return { name, startDate, endDate, destinations, companions: parseCompanions(formData.get("companions")) };
 }
 
 export async function createTrip(formData) {
@@ -86,9 +110,11 @@ export async function createTrip(formData) {
     redirect("/login");
   }
 
-  await createUserTrip(user.uid, parseTripForm(formData));
+  // El formulario muestra el modal "viaje creado" (diseño 03e), asi que
+  // devolvemos el id en vez de redirigir.
+  const id = await createUserTrip(user.uid, parseTripForm(formData));
   revalidatePath("/dashboard/trips");
-  redirect("/dashboard/trips");
+  return { id };
 }
 
 export async function deleteTrip(tripId) {

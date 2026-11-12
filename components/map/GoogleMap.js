@@ -158,11 +158,44 @@ function loadLibraries() {
   return librariesPromise;
 }
 
-function renderMarkers(map, markers, markersRef) {
+function escapeXml(text) {
+  return String(text).replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+}
+
+// Marcador "pastilla" blanca con el orden y el nombre de la parada (vista
+// previa del diseño "Crear viaje"). Se dibuja como SVG para no depender de
+// AdvancedMarkerElement (que requiere un mapId).
+function pillIcon(order, label) {
+  const name = String(label || "");
+  const textWidth = Math.ceil(name.length * 7.2);
+  const width = 4 + 24 + 8 + textWidth + 12;
+  const height = 32;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width + 8}" height="${height + 8}">
+<defs><filter id="s" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.18"/></filter></defs>
+<rect x="4" y="3" width="${width}" height="${height}" rx="16" fill="#fff" filter="url(#s)"/>
+<circle cx="${4 + 4 + 12}" cy="${3 + 16}" r="12" fill="${ACCENT_COLOR}"/>
+<text x="${4 + 4 + 12}" y="${3 + 16}" dy="3.5" text-anchor="middle" font-family="Rubik, Arial, sans-serif" font-size="10" font-weight="700" fill="#fff">${order}°</text>
+<text x="${4 + 4 + 24 + 8}" y="${3 + 16}" dy="4" font-family="Rubik, Arial, sans-serif" font-size="12" font-weight="600" fill="#111827">${escapeXml(name)}</text>
+</svg>`;
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new window.google.maps.Size(width + 8, height + 8),
+    anchor: new window.google.maps.Point(4 + 4 + 12, 3 + 16),
+  };
+}
+
+function renderMarkers(map, markers, markersRef, markerStyle = "circle") {
   markersRef.current.forEach((marker) => marker.setMap(null));
-  markersRef.current = markers.map(
-    (marker, index) =>
-      new window.google.maps.Marker({
+  markersRef.current = markers.map((marker, index) =>
+    markerStyle === "pill"
+      ? new window.google.maps.Marker({
+          position: { lat: marker.lat, lng: marker.lng },
+          map,
+          title: marker.label,
+          icon: pillIcon(index + 1, marker.label),
+        })
+      : new window.google.maps.Marker({
         position: { lat: marker.lat, lng: marker.lng },
         map,
         title: marker.label,
@@ -378,6 +411,7 @@ export default function GoogleMap({
   nextDestination = null,
   tripId = null,
   dateList = [],
+  markerStyle = "circle",
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -462,7 +496,7 @@ export default function GoogleMap({
         zoomControl: true,
       });
 
-      renderMarkers(mapRef.current, markersData.current, markersRef);
+      renderMarkers(mapRef.current, markersData.current, markersRef, markerStyle);
       renderRoute(mapRef.current, markersData.current, routeRef, DirectionsService);
       if (showNearbyPlaces) {
         renderNearbyPlaces(mapRef.current, markersData.current, poiRef, activeGroupsRef, handleSelectPlace);
@@ -493,7 +527,7 @@ export default function GoogleMap({
       return;
     }
 
-    renderMarkers(mapRef.current, markers, markersRef);
+    renderMarkers(mapRef.current, markers, markersRef, markerStyle);
     renderRoute(mapRef.current, markers, routeRef, directionsServiceRef.current);
     if (showNearbyPlaces) {
       renderNearbyPlaces(mapRef.current, markers, poiRef, activeGroupsRef, handleSelectPlace);

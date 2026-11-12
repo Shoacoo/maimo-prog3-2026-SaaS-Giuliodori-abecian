@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatDateRange } from "@/lib/trips/dates";
-import { deleteTrip } from "@/app/dashboard/trips/actions";
+import DeleteTripButton from "@/components/trips/DeleteTripButton";
 
 const TOTAL_ACTIVITIES = 10;
 
@@ -11,6 +11,16 @@ const TOTAL_ACTIVITIES = 10;
 function placeholderActivities(id) {
   const hash = [...String(id)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return (hash % TOTAL_ACTIVITIES) + 1;
+}
+
+function tripStats(trip) {
+  const items = Object.values(trip.itinerary || {}).flat();
+  return {
+    activities: items.length,
+    places: new Set(items.map((item) => item.placeId).filter(Boolean)).size,
+    notes: (trip.notes || []).length,
+    companions: (trip.companions || []).length,
+  };
 }
 
 export default function TripCard({ trip }) {
@@ -45,15 +55,7 @@ export default function TripCard({ trip }) {
         </div>
       </Link>
 
-      <form action={deleteTrip.bind(null, trip.id)} className="absolute right-3 top-3">
-        <button
-          type="submit"
-          aria-label="Eliminar viaje"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-md transition hover:bg-white"
-        >
-          ✕
-        </button>
-      </form>
+      <DeleteTripButton tripId={trip.id} tripName={trip.name} stats={tripStats(trip)} />
     </div>
   );
 }
