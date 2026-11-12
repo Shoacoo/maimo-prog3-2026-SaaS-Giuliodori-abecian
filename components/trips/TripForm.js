@@ -121,7 +121,7 @@ function PreviewCard({ name, destinations, companions, startDate, endDate }) {
           <Stat value={days} label={days === 1 ? "día" : "días"} />
           <Stat value={destinations.length} label={destinations.length === 1 ? "parada" : "paradas"} />
           <Stat value={companions.length} label={companions.length === 1 ? "compañero" : "compañeros"} />
-          <Stat value={0} label="actividades" />
+          <Stat value={`0/${days + destinations.length}`} label="actividades" />
         </div>
         <div className="flex items-center gap-2.5 rounded-xl bg-[#7386f5]/8 px-3 py-2.5">
           <span className="text-[15px]">💡</span>

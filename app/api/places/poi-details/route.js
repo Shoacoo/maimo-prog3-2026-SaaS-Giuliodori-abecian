@@ -16,7 +16,7 @@ export async function GET(request) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const details = await getPlaceDetails(placeId, apiKey);
+  const details = await getPlaceDetails(placeId, apiKey, { extras: true });
   if (details.error) {
     return NextResponse.json(details, { status: 502 });
   }

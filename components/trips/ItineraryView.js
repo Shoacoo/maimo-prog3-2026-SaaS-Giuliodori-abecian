@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -21,6 +21,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import StopOrdinal from "@/components/trips/StopOrdinal";
+import AddPlacePanel from "@/components/trips/itinerary/AddPlacePanel";
+import ActivityModal from "@/components/trips/itinerary/ActivityModal";
+import MonthCalendar from "@/components/trips/itinerary/MonthCalendar";
 import {
   addPlaceToItinerary,
   removePlaceFromItinerary,
@@ -42,6 +45,47 @@ function capitalize(text) {
 
 function dateObjFor(date) {
   return new Date(`${date}T00:00:00`);
+}
+
+let optimisticCounter = 0;
+function nextOptimisticId() {
+  optimisticCounter += 1;
+  return `optimistic-${optimisticCounter}`;
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true" className="shrink-0 text-gray-400">
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Chip({ chip }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+        chip.tone === "red" ? "bg-red-50 text-red-500" : "bg-gray-100 text-gray-700"
+      }`}
+    >
+      {chip.text}
+    </span>
+  );
+}
+
+function AddPlaceButton({ open, onToggle, className = "", panelProps }) {
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#7386f5] px-5 text-sm font-semibold text-white shadow-md transition hover:bg-[#5f70e0]"
+      >
+        + Agregar lugar
+      </button>
+      {open ? <AddPlacePanel {...panelProps} /> : null}
+    </div>
+  );
 }
 
 function ChevronDownIcon({ open }) {
@@ -122,7 +166,7 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
             dragging ? "shadow-2xl" : ""
           }`}
         >
-          <div className="flex min-w-0 flex-1 flex-col justify-between gap-1.5 p-5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-5">
             <div className="flex items-start justify-between gap-2">
               <p className="font-semibold text-gray-900">{item.name}</p>
               {onEdit ? (
@@ -137,9 +181,11 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
               ) : null}
             </div>
             {item.time ? <p className="text-xs font-semibold text-[#7386f5]">{formatTime(item.time)}</p> : null}
+            {item.description || details?.description ? (
+              <p className="line-clamp-2 text-sm text-gray-600">{item.description || details.description}</p>
+            ) : null}
             <StatusLine details={details} />
-            {item.note ? <p className="line-clamp-1 text-xs italic text-gray-500">"{item.note}"</p> : null}
-            {details?.description ? <p className="line-clamp-2 text-sm text-gray-500">{details.description}</p> : null}
+            {item.note ? <p className="line-clamp-1 text-xs italic text-gray-500">“{item.note}”</p> : null}
           </div>
           {item.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -156,89 +202,6 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
             <TrashIcon />
           </button>
         ) : null}
-      </div>
-    </div>
-  );
-}
-
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
-// Quarter-hour increments only - a free-typed minute value isn't useful for
-// trip planning and makes activities harder to scan at a glance.
-const MINUTE_OPTIONS = ["00", "15", "30", "45"];
-
-function parseActivityTime(time) {
-  const [hour, minute] = (time || "").split(":");
-  return {
-    hour: HOUR_OPTIONS.includes(hour) ? hour : "",
-    minute: MINUTE_OPTIONS.includes(minute) ? minute : "00",
-  };
-}
-
-function ActivityEditForm({ item, order, isLast, onCancel, onSubmit }) {
-  const initialTime = parseActivityTime(item.time);
-  const [hour, setHour] = useState(initialTime.hour);
-  const [minute, setMinute] = useState(initialTime.minute);
-  const [note, setNote] = useState(item.note || "");
-
-  const selectClasses =
-    "h-10 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-[#7386f5]";
-
-  return (
-    <div className="flex gap-4">
-      <StopOrdinal order={order} highlighted={false} isLast={isLast} />
-      <div className="scheme-light mb-4 flex-1 rounded-2xl border-2 border-[#7386f5] bg-white p-5 shadow-md">
-        <p className="font-semibold text-gray-900">{item.name}</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1 text-xs font-medium text-gray-500">
-            Horario
-            <div className="flex items-center gap-2">
-              <select value={hour} onChange={(event) => setHour(event.target.value)} className={selectClasses}>
-                <option value="">--</option>
-                {HOUR_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <span className="text-gray-400">:</span>
-              <select
-                value={minute}
-                onChange={(event) => setMinute(event.target.value)}
-                disabled={!hour}
-                className={`${selectClasses} disabled:opacity-50`}
-              >
-                {MINUTE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <label className="grid gap-1 text-xs font-medium text-gray-500">
-            Nota personal
-            <input
-              type="text"
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="Ej: reservar con anticipacion"
-              maxLength={280}
-              className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#7386f5]"
-            />
-          </label>
-        </div>
-        <div className="mt-3 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="text-xs font-medium text-gray-400 hover:text-gray-600">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => onSubmit({ time: hour ? `${hour}:${minute}` : "", note })}
-            className="rounded-full bg-[#7386f5] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#5f70e0]"
-          >
-            Guardar
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -273,107 +236,12 @@ function DayDropZone({ date, children }) {
   );
 }
 
-function PlaceSearchBox({ cityHint, onResolved, onCancel }) {
-  const [query, setQuery] = useState("");
-  const [predictions, setPredictions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [resolving, setResolving] = useState(false);
-  const debounceRef = useRef(null);
-
-  useEffect(() => {
-    if (!query.trim()) {
-      setPredictions([]);
-      return undefined;
-    }
-
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ q: query });
-        if (cityHint) {
-          params.set("lat", String(cityHint.lat));
-          params.set("lng", String(cityHint.lng));
-        }
-        const response = await fetch(`/api/places/search?${params}`);
-        const data = await response.json();
-        setPredictions(data.predictions || []);
-      } catch {
-        setPredictions([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(debounceRef.current);
-  }, [query, cityHint]);
-
-  async function selectPrediction(prediction) {
-    setPredictions([]);
-    setQuery("");
-    setResolving(true);
-
-    try {
-      const response = await fetch(`/api/places/poi-details?placeId=${encodeURIComponent(prediction.placeId)}`);
-      const data = await response.json();
-      if (!data.error && Number.isFinite(data.lat) && Number.isFinite(data.lng)) {
-        onResolved({
-          placeId: prediction.placeId,
-          name: data.name || prediction.mainText,
-          lat: data.lat,
-          lng: data.lng,
-          image: data.photos?.[0] || null,
-          category: data.category,
-          description: data.description,
-        });
-      }
-    } finally {
-      setResolving(false);
-    }
-  }
-
-  return (
-    <div className="relative">
-      <input
-        autoFocus
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Buscar lugar..."
-        className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm text-gray-900 outline-none transition focus:border-[#7386f5] focus:ring-1 focus:ring-[#7386f5]"
-      />
-      {loading || resolving ? (
-        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-          {resolving ? "Agregando..." : "Buscando..."}
-        </span>
-      ) : null}
-      {predictions.length > 0 ? (
-        <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-          {predictions.map((prediction) => (
-            <li key={prediction.placeId}>
-              <button
-                type="button"
-                onClick={() => selectPrediction(prediction)}
-                className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-              >
-                <span>{prediction.mainText}</span>
-                <span className="text-gray-400">{prediction.secondaryText}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <button type="button" onClick={onCancel} className="mt-2 text-xs text-gray-400 underline underline-offset-2">
-        Cancelar
-      </button>
-    </div>
-  );
-}
-
-export default function ItineraryView({ tripId, dateList, itinerary, cityByDate, itemDetails }) {
+export default function ItineraryView({ tripId, dateList, itinerary, cityByDate, itemDetails, favorites = [] }) {
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState(dateList.includes(today) ? today : dateList[0]);
-  const [collapsedDays, setCollapsedDays] = useState(() => new Set());
+  const [collapsedDays, setCollapsedDays] = useState(() => new Set(dateList.slice(3)));
+  const [calendarView, setCalendarView] = useState("week");
   const [localItinerary, setLocalItinerary] = useState(itinerary);
   const [openSearchDate, setOpenSearchDate] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
@@ -395,8 +263,16 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
 
   function selectDay(date) {
     setSelectedDate(date);
-    dayRefs.current[date]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setCollapsedDays((current) => {
+      if (!current.has(date)) return current;
+      const next = new Set(current);
+      next.delete(date);
+      return next;
+    });
+    requestAnimationFrame(() => dayRefs.current[date]?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
+
+  const closeSearch = useCallback(() => setOpenSearchDate(null), []);
 
   function toggleCollapsed(date) {
     setCollapsedDays((current) => {
@@ -412,9 +288,8 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
 
   function handleAdd(date, place) {
     const previous = localItinerary;
-    const optimisticItem = { ...place, id: `optimistic-${Date.now()}` };
+    const optimisticItem = { ...place, id: nextOptimisticId() };
     setLocalItinerary((current) => ({ ...current, [date]: [...(current[date] || []), optimisticItem] }));
-    setOpenSearchDate(null);
     setError("");
 
     startTransition(async () => {
@@ -451,18 +326,37 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
     });
   }
 
-  function handleUpdateItem(date, itemId, { time, note }) {
+  function handleUpdateItem(date, itemId, { date: newDate, time, note, description }) {
     const previous = localItinerary;
-    setLocalItinerary((current) => ({
-      ...current,
-      [date]: (current[date] || []).map((item) => (item.id === itemId ? { ...item, time: time || null, note: note || null } : item)),
-    }));
+    const targetDate = newDate || date;
+    const original = (localItinerary[date] || []).find((item) => item.id === itemId);
+    if (!original) return;
+    const updated = { ...original, time: time || null, note: note || null, description: description || null };
+    const fromItems = (localItinerary[date] || []).filter((item) => item.id !== itemId);
+    const toItems =
+      targetDate === date
+        ? (localItinerary[date] || []).map((item) => (item.id === itemId ? updated : item))
+        : [...(localItinerary[targetDate] || []), updated];
+
+    setLocalItinerary((current) =>
+      targetDate === date ? { ...current, [date]: toItems } : { ...current, [date]: fromItems, [targetDate]: toItems },
+    );
     setEditingItemId(null);
     setError("");
 
     startTransition(async () => {
       try {
-        await updateItineraryItemAction(tripId, date, itemId, { time, note });
+        if (targetDate !== date) {
+          await moveItineraryItemAction(
+            tripId,
+            date,
+            targetDate,
+            fromItems.map((item) => item.id),
+            toItems.map((item) => item.id),
+          );
+        }
+        await updateItineraryItemAction(tripId, targetDate, itemId, { time, note, description });
+        router.refresh();
       } catch {
         setLocalItinerary(previous);
         setError("No se pudo guardar los cambios. Intenta de nuevo.");
@@ -582,6 +476,40 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
   const activeItems = activeDate ? localItinerary[activeDate] || [] : [];
   const activeIndex = activeId ? activeItems.findIndex((item) => item.id === activeId) : -1;
   const activeItem = activeIndex >= 0 ? activeItems[activeIndex] : null;
+  const editingDate = editingItemId ? findDateOf(editingItemId, localItinerary) : null;
+  const editingItem = editingDate ? (localItinerary[editingDate] || []).find((item) => item.id === editingItemId) : null;
+  const lastDate = dateList[dateList.length - 1];
+
+  function dayChip(date, items) {
+    const city = cityByDate[date]?.name;
+    if (items.length === 0 && date === lastDate && dateList.length > 1) {
+      return { text: "Vuelta ✈", tone: "gray" };
+    }
+    if (items.length === 0) {
+      return { text: collapsedDays.has(date) ? "Sin actividades" : "0 lugares", tone: collapsedDays.has(date) ? "red" : "gray" };
+    }
+    const label = `${items.length} ${items.length === 1 ? "lugar" : "lugares"}`;
+    return { text: city ? `${label} · ${city}` : label, tone: "gray" };
+  }
+
+  function addButtonProps(date, items) {
+    return {
+      open: openSearchDate === date,
+      onToggle: () => setOpenSearchDate((current) => (current === date ? null : date)),
+      panelProps: {
+        date,
+        city: cityByDate[date],
+        favorites,
+        dayItems: items,
+        mapHref: `/dashboard/trips/${tripId}/lugares`,
+        onAdd: (place) => handleAdd(date, place),
+        onClose: closeSearch,
+      },
+    };
+  }
+
+  const months = [...new Set(dateList.map((date) => date.slice(0, 7)))];
+  const selectedMonth = selectedDate.slice(0, 7);
 
   return (
     <div>
@@ -592,35 +520,82 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
           <span className="h-2.5 w-14 rounded-full bg-[#7386f5]" />
         </div>
 
-        <div className="flex items-end justify-between">
-          <h2 className="text-2xl font-black text-gray-900">{capitalize(MONTH_FORMATTER.format(selectedDateObj))}</h2>
-          <span className="text-5xl font-black text-gray-900">{DAY_NUMBER_FORMATTER.format(selectedDateObj)}</span>
-        </div>
-
-        <div className={`mt-5 flex gap-3 overflow-x-auto pb-2 ${SCROLLBAR_CLASSES}`}>
-          {dateList.map((date) => {
-            const dateObj = dateObjFor(date);
-            const selected = date === selectedDate;
-            return (
-              <button
-                key={date}
-                type="button"
-                onClick={() => selectDay(date)}
-                className="flex w-12 shrink-0 flex-col items-center gap-2"
-              >
-                <span className="text-xs font-medium text-gray-400">{capitalize(WEEKDAY_FORMATTER.format(dateObj))}</span>
-                <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition ${
-                    selected ? "bg-[#7386f5] text-white shadow-md" : "text-gray-700 hover:bg-gray-100"
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-black text-gray-900">{capitalize(MONTH_FORMATTER.format(selectedDateObj))}</h2>
+            {calendarView === "month" && months.length > 1 ? (
+              <span className="flex gap-1">
+                {months.map((month) => (
+                  <button
+                    key={month}
+                    type="button"
+                    onClick={() => setSelectedDate(dateList.find((date) => date.startsWith(month)))}
+                    className={`h-2 w-2 rounded-full ${month === selectedMonth ? "bg-[#7386f5]" : "bg-gray-200"}`}
+                    aria-label={`Ver ${month}`}
+                  />
+                ))}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex rounded-lg bg-gray-100 p-0.5 text-xs font-medium">
+              {[
+                { id: "week", label: "Semana" },
+                { id: "month", label: "Mes" },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setCalendarView(option.id)}
+                  className={`rounded-md px-3 py-1 transition ${
+                    calendarView === option.id ? "bg-white font-semibold text-gray-900 shadow-sm" : "text-gray-500"
                   }`}
                 >
-                  {DAY_NUMBER_FORMATTER.format(dateObj)}
-                </span>
-                <span className={`h-1 w-6 rounded-full transition ${selected ? "bg-[#7386f5]" : "bg-transparent"}`} />
-              </button>
-            );
-          })}
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-5xl font-black text-gray-900">{DAY_NUMBER_FORMATTER.format(selectedDateObj)}</span>
+          </div>
         </div>
+
+        {calendarView === "month" ? (
+          <div className="mt-5">
+            <MonthCalendar
+              month={selectedMonth}
+              dateList={dateList}
+              itinerary={localItinerary}
+              cityByDate={cityByDate}
+              selectedDate={selectedDate}
+              onSelect={selectDay}
+            />
+          </div>
+        ) : (
+          <div className={`mt-5 flex gap-3 overflow-x-auto pb-2 ${SCROLLBAR_CLASSES}`}>
+            {dateList.map((date) => {
+              const dateObj = dateObjFor(date);
+              const selected = date === selectedDate;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => selectDay(date)}
+                  className="flex w-12 shrink-0 flex-col items-center gap-2"
+                >
+                  <span className="text-xs font-medium text-gray-400">{capitalize(WEEKDAY_FORMATTER.format(dateObj))}</span>
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition ${
+                      selected ? "bg-[#7386f5] text-white shadow-md" : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    {DAY_NUMBER_FORMATTER.format(dateObj)}
+                  </span>
+                  <span className={`h-1 w-6 rounded-full transition ${selected ? "bg-[#7386f5]" : "bg-transparent"}`} />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="mt-10">
@@ -639,11 +614,38 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="mt-6 grid gap-10">
+          <div className="mt-6 flex flex-col">
             {dateList.map((date) => {
               const items = localItinerary[date] || [];
               const collapsed = collapsedDays.has(date);
               const dateObj = dateObjFor(date);
+              const chip = dayChip(date, items);
+              const title = capitalize(DAY_HEADER_FORMATTER.format(dateObj));
+
+              if (collapsed) {
+                return (
+                  <div
+                    key={date}
+                    id={`day-${date}`}
+                    ref={(el) => {
+                      dayRefs.current[date] = el;
+                    }}
+                    className="mb-3"
+                  >
+                    <DayDropZone date={date}>
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapsed(date)}
+                        className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3.5 text-left transition hover:border-[#7386f5]/40"
+                      >
+                        <span className="flex-1 text-base font-semibold text-gray-900">{title}</span>
+                        <Chip chip={chip} />
+                        <ChevronRightIcon />
+                      </button>
+                    </DayDropZone>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -652,87 +654,50 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
                   ref={(el) => {
                     dayRefs.current[date] = el;
                   }}
+                  className="mb-10"
                 >
                   <button
                     type="button"
                     onClick={() => toggleCollapsed(date)}
-                    className="flex w-full items-center justify-between text-left"
+                    className="flex w-full items-center gap-3 text-left"
                   >
-                    <h3 className="text-xl font-bold text-gray-900">{capitalize(DAY_HEADER_FORMATTER.format(dateObj))}</h3>
-                    <ChevronDownIcon open={!collapsed} />
+                    <h3 className="flex-1 text-xl font-bold text-gray-900">{title}</h3>
+                    <Chip chip={chip} />
+                    <ChevronDownIcon open />
                   </button>
 
-                  {!collapsed ? (
-                    <div className="mt-4">
-                      <DayDropZone date={date}>
-                        {items.length > 0 ? (
-                          <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-                            <div className="grid gap-1">
-                              {items.map((item, index) =>
-                                editingItemId === item.id ? (
-                                  <ActivityEditForm
-                                    key={item.id}
-                                    item={item}
-                                    order={index + 1}
-                                    isLast={index === items.length - 1}
-                                    onCancel={() => setEditingItemId(null)}
-                                    onSubmit={(data) => handleUpdateItem(date, item.id, data)}
-                                  />
-                                ) : (
-                                  <SortableActivityItem
-                                    key={item.id}
-                                    item={item}
-                                    order={index + 1}
-                                    isLast={index === items.length - 1}
-                                    details={itemDetails[item.id]}
-                                    onEdit={() => setEditingItemId(item.id)}
-                                    onRemove={() => handleRemove(date, item.id)}
-                                  />
-                                ),
-                              )}
-                            </div>
-                          </SortableContext>
-                        ) : (
-                          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-gray-200 p-4">
-                            <p className="text-sm text-gray-400">
-                              Sin actividades :(
-                              <br />
-                              <span className="font-semibold text-gray-500">
-                                Arrastra una actividad de otro dia o agrega una nueva!
-                              </span>
-                            </p>
-                            {openSearchDate !== date ? (
-                              <button
-                                type="button"
-                                onClick={() => setOpenSearchDate(date)}
-                                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#7386f5] px-5 text-sm font-semibold text-white shadow-md transition hover:bg-[#5f70e0]"
-                              >
-                                + Agregar lugar
-                              </button>
-                            ) : null}
+                  <div className="mt-4">
+                    <DayDropZone date={date}>
+                      {items.length > 0 ? (
+                        <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                          <div className="grid gap-1">
+                            {items.map((item, index) => (
+                              <SortableActivityItem
+                                key={item.id}
+                                item={item}
+                                order={index + 1}
+                                isLast={index === items.length - 1}
+                                details={itemDetails[item.id]}
+                                onEdit={() => setEditingItemId(item.id)}
+                                onRemove={() => handleRemove(date, item.id)}
+                              />
+                            ))}
                           </div>
-                        )}
-                      </DayDropZone>
-
-                      {openSearchDate === date ? (
-                        <div className="mt-3 max-w-md">
-                          <PlaceSearchBox
-                            cityHint={cityByDate[date]}
-                            onResolved={(place) => handleAdd(date, place)}
-                            onCancel={() => setOpenSearchDate(null)}
-                          />
+                        </SortableContext>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-gray-200 p-4">
+                          <p className="text-sm text-gray-400">
+                            Sin actividades :(
+                            <br />
+                            <span className="font-semibold text-gray-600">No olvides organizar tus días!</span>
+                          </p>
+                          <AddPlaceButton {...addButtonProps(date, items)} />
                         </div>
-                      ) : items.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setOpenSearchDate(date)}
-                          className="mt-3 inline-flex h-11 items-center gap-2 rounded-full bg-[#7386f5] px-5 text-sm font-semibold text-white shadow-md transition hover:bg-[#5f70e0]"
-                        >
-                          + Agregar lugar
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
+                      )}
+                    </DayDropZone>
+
+                    {items.length > 0 ? <AddPlaceButton {...addButtonProps(date, items)} className="mt-3 inline-block" /> : null}
+                  </div>
                 </div>
               );
             })}
@@ -745,6 +710,21 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
           </DragOverlay>
         </DndContext>
       </div>
+
+      {editingItem ? (
+        <ActivityModal
+          item={editingItem}
+          date={editingDate}
+          dateList={dateList}
+          details={itemDetails[editingItem.id]}
+          onCancel={() => setEditingItemId(null)}
+          onSave={(data) => handleUpdateItem(editingDate, editingItem.id, data)}
+          onRemove={() => {
+            setEditingItemId(null);
+            handleRemove(editingDate, editingItem.id);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

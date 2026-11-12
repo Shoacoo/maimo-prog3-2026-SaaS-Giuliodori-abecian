@@ -1,17 +1,19 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { getUserTrip } from "@/lib/trips/trips";
-import { listTripDates } from "@/lib/trips/dates";
 import { getNearbyPlaces, CATEGORY_LABELS } from "@/lib/places/nearby";
 import TripHero from "@/components/trips/TripHero";
 import TripMapPanel from "@/components/trips/TripMapPanel";
 import PlacesExplorer from "@/components/trips/PlacesExplorer";
 import { SetTripPill } from "@/components/dashboard/TripPillProvider";
+import { TripPlanProvider } from "@/components/trips/TripPlanProvider";
+import { buildTripPlan } from "@/lib/trips/progress";
 
 export const dynamic = "force-dynamic";
 
-export default async function TripPlacesPage({ params }) {
+export default async function TripPlacesPage({ params, searchParams }) {
   const { id } = await params;
+  const { filtro } = await searchParams;
   const user = await getCurrentUser();
 
   if (!user) {
@@ -25,7 +27,6 @@ export default async function TripPlacesPage({ params }) {
   }
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const dateList = listTripDates(trip.startDate, trip.endDate);
 
   let places = [];
   if (apiKey) {
@@ -48,24 +49,26 @@ export default async function TripPlacesPage({ params }) {
   }
 
   return (
-    <div className="flex">
-      <SetTripPill id={trip.id} name={trip.name} />
+    <TripPlanProvider plan={buildTripPlan(trip)}>
+      <div className="flex">
+        <SetTripPill id={trip.id} name={trip.name} />
 
-      <div className="min-w-0 flex-1">
-        <TripHero trip={trip} subtitle="Descubri nuevos lugares y agrega los mejores a tu viaje!" />
+        <div className="min-w-0 flex-1">
+          <TripHero trip={trip} subtitle="Descubri nuevos lugares y agrega los mejores a tu viaje!" />
 
-        <div className="px-8 py-10 pb-32 sm:px-12">
-          <PlacesExplorer
-            tripId={trip.id}
-            dateList={dateList}
-            destinations={trip.destinations}
-            places={places}
-            categories={Object.entries(CATEGORY_LABELS).map(([type, label]) => ({ type, label }))}
-          />
+          <div className="px-8 py-10 pb-32 sm:px-12">
+            <PlacesExplorer
+              destinations={trip.destinations}
+              favorites={trip.favorites}
+              initialFilter={typeof filtro === "string" ? filtro : null}
+              places={places}
+              categories={Object.entries(CATEGORY_LABELS).map(([type, label]) => ({ type, label }))}
+            />
+          </div>
         </div>
-      </div>
 
-      <TripMapPanel trip={trip} />
-    </div>
+        <TripMapPanel trip={trip} />
+      </div>
+    </TripPlanProvider>
   );
 }

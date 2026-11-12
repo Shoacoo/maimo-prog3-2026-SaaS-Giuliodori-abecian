@@ -72,6 +72,7 @@ function Field({ label, value, active, onClick }) {
 
 export default function DateRangeField({ startDate, endDate, onChange }) {
   const [open, setOpen] = useState(false);
+  const [field, setField] = useState("start");
   const [view, setView] = useState(() => startDate || new Date());
   const containerRef = useRef(null);
 
@@ -93,14 +94,16 @@ export default function DateRangeField({ startDate, endDate, onChange }) {
     };
   }, [open]);
 
-  function openAt(date) {
+  function openAt(date, which) {
     setView(date || startDate || new Date());
+    setField(which);
     setOpen(true);
   }
 
   function pick(day) {
     if (!startDate || endDate || day < startDate) {
       onChange({ startDate: day, endDate: null });
+      setField("end");
     } else {
       onChange({ startDate, endDate: day });
     }
@@ -109,17 +112,22 @@ export default function DateRangeField({ startDate, endDate, onChange }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const nights = nightsBetween(startDate, endDate);
-  const selectingEnd = open && Boolean(startDate) && !endDate;
+  const editingEnd = open && Boolean(startDate) && (!endDate || field === "end");
 
   return (
     <div ref={containerRef} className="relative">
       <div className="flex flex-col gap-4 sm:flex-row">
-        <Field label="Fecha de inicio" value={startDate} active={open && !selectingEnd} onClick={() => openAt(startDate)} />
+        <Field
+          label="Fecha de inicio"
+          value={startDate}
+          active={open && !editingEnd}
+          onClick={() => openAt(startDate, "start")}
+        />
         <Field
           label="Fecha de finalizacion"
           value={endDate}
-          active={selectingEnd || (open && Boolean(endDate))}
-          onClick={() => openAt(endDate || startDate)}
+          active={editingEnd}
+          onClick={() => openAt(endDate || startDate, "end")}
         />
       </div>
 

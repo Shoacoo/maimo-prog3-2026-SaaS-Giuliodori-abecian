@@ -18,6 +18,8 @@ import {
   updateNote,
   deleteNote,
   reorderNotes,
+  toggleTripFavorite,
+  addTripCompanion,
 } from "@/lib/trips/trips";
 
 const NOTE_COLOR_IDS = new Set(["yellow", "rose", "sky", "violet"]);
@@ -104,6 +106,35 @@ function parseTripForm(formData) {
   return { name, startDate, endDate, destinations, companions: parseCompanions(formData.get("companions")) };
 }
 
+export async function toggleFavoritePlace(tripId, place) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const clean = sanitizeItineraryPlace(place);
+  const saved = await toggleTripFavorite(user.uid, tripId, {
+    ...clean,
+    city: place.city ? String(place.city) : null,
+  });
+  revalidatePath(`/dashboard/trips/${tripId}`, "layout");
+  return { saved };
+}
+
+export async function addCompanionToTrip(tripId, person) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const [companion] = parseCompanions(JSON.stringify([person]));
+  if (!companion) {
+    throw new Error("El email no es valido.");
+  }
+  await addTripCompanion(user.uid, tripId, companion);
+  revalidatePath(`/dashboard/trips/${tripId}`);
+}
+
 export async function createTrip(formData) {
   const user = await getCurrentUser();
   if (!user) {
@@ -158,15 +189,18 @@ function sanitizeItineraryPlace(place) {
   };
 }
 
-export async function addPlaceToItinerary(tripId, date, place) {
+export async function addPlaceToItinerary(tripId, date, place, time = null) {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }
 
-  await addItineraryItem(user.uid, tripId, date, sanitizeItineraryPlace(place));
-  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
-  revalidatePath(`/dashboard/trips/${tripId}/lugares`);
+  const saved = await addItineraryItem(user.uid, tripId, date, {
+    ...sanitizeItineraryPlace(place),
+    time: sanitizeItineraryTime(time),
+  });
+  revalidatePath(`/dashboard/trips/${tripId}`, "layout");
+  return { id: saved.id };
 }
 
 export async function removePlaceFromItinerary(tripId, date, itemId) {
@@ -176,24 +210,27 @@ export async function removePlaceFromItinerary(tripId, date, itemId) {
   }
 
   await removeItineraryItem(user.uid, tripId, date, itemId);
-  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
-  revalidatePath(`/dashboard/trips/${tripId}/lugares`);
+  revalidatePath(`/dashboard/trips/${tripId}`, "layout");
 }
 
 function sanitizeItineraryTime(time) {
   return typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : null;
 }
 
-export async function updateItineraryItemAction(tripId, date, itemId, { time, note }) {
+export async function updateItineraryItemAction(tripId, date, itemId, { time, note, description }) {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }
 
-  await updateItineraryItem(user.uid, tripId, date, itemId, {
+  const updates = {
     time: sanitizeItineraryTime(time),
     note: String(note || "").trim().slice(0, 280) || null,
-  });
+  };
+  if (description !== undefined) {
+    updates.description = String(description || "").trim().slice(0, 500) || null;
+  }
+  await updateItineraryItem(user.uid, tripId, date, itemId, updates);
   revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
 }
 

@@ -50,6 +50,8 @@ export default function TripCreatedModal({ tripId, name, destinations, companion
   const cover = destinations.find((city) => city.image)?.image;
   const route = destinations.map((city) => city.name).join(" → ");
 
+  if (typeof document === "undefined") return null;
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-[560px] overflow-hidden rounded-3xl bg-white shadow-xl">

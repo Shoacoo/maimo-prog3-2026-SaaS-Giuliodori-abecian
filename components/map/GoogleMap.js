@@ -388,6 +388,23 @@ async function renderRoute(map, markers, routeRef, DirectionsService) {
   }
 }
 
+// Ciudad del viaje mas cercana a un lugar (se guarda con los favoritos).
+function nearestMarkerLabel(markers, place) {
+  if (!markers.length || !Number.isFinite(place?.lat) || !Number.isFinite(place?.lng)) {
+    return null;
+  }
+  let best = null;
+  let bestDistance = Infinity;
+  for (const marker of markers) {
+    const distance = (marker.lat - place.lat) ** 2 + (marker.lng - place.lng) ** 2;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = marker;
+    }
+  }
+  return best?.label || null;
+}
+
 function nextDestinationLabel(daysUntil) {
   if (daysUntil > 1) {
     return `En ${daysUntil} dias`;
@@ -412,6 +429,8 @@ export default function GoogleMap({
   tripId = null,
   dateList = [],
   markerStyle = "circle",
+  itinerary = null,
+  favoriteIds = [],
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -658,7 +677,11 @@ export default function GoogleMap({
 
       {selectedPlace ? (
         <PlaceSheet
+          key={selectedPlace.id}
           place={selectedPlace}
+          itinerary={itinerary}
+          favoriteIds={favoriteIds}
+          city={nearestMarkerLabel(markers, selectedPlace)}
           details={placeDetails}
           loading={detailsLoading}
           activeTab={activeTab}

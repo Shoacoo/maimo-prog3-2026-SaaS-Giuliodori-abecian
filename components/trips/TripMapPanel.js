@@ -12,6 +12,8 @@ export default function TripMapPanel({ trip }) {
         showNearbyPlaces
         nextDestination={getNextDestination(trip)}
         tripId={trip.id}
+        itinerary={trip.itinerary}
+        favoriteIds={(trip.favorites || []).map((place) => place.placeId)}
         dateList={listTripDates(trip.startDate, trip.endDate)}
         markers={trip.destinations.map((destination) => ({
           lng: destination.lng,
