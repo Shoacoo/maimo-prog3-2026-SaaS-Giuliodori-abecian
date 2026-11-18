@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { readPhotoFile } from "@/lib/memories/photoStore";
+import { userCanAccessTrip } from "@/lib/trips/trips";
 
-// Sirve una foto de Recuerdos solo a su dueño (?size=thumb para la miniatura).
+// Sirve una foto de Recuerdos a los miembros del viaje (?size=thumb para la miniatura).
 // El id es unico e inmutable, asi que el navegador puede cachearla.
 export async function GET(request, { params }) {
   const user = await getCurrentUser();
@@ -14,7 +15,8 @@ export async function GET(request, { params }) {
   const size = new URL(request.url).searchParams.get("size") === "thumb" ? "thumb" : "full";
   const file = await readPhotoFile(photoId, size);
 
-  if (!file || file.userId !== user.uid) {
+  // La ven todos los miembros del viaje (dueño y compañeros), nadie más.
+  if (!file || !(await userCanAccessTrip(user.uid, file.tripId))) {
     return NextResponse.json({ error: "Foto no encontrada." }, { status: 404 });
   }
 

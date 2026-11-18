@@ -1,24 +1,26 @@
 import { NextResponse } from "next/server";
 import { CATEGORY_LABELS } from "@/lib/places/nearby";
-import { placePhotoUrl } from "@/lib/places/photoUrl";
+import { circle, distanceKm, firstPhotoUrl, openNow, placesRequest, readLatLng, toLatLng } from "@/lib/places/google";
 
-function distanceKm(a, b) {
-  const rad = (deg) => (deg * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(h));
-}
+const FIELDS = [
+  "places.id",
+  "places.displayName",
+  "places.location",
+  "places.types",
+  "places.rating",
+  "places.currentOpeningHours.openNow",
+  "places.photos",
+].join(",");
 
-// Buscador del itinerario (diseño 05b): Text Search devuelve foto, rating,
-// tipo y si esta abierto en una sola llamada, a diferencia del autocomplete.
+// Buscador del itinerario (diseño 05b): Text Search (Places API New) devuelve
+// foto, rating, tipo y si esta abierto en una sola llamada.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
   const type = searchParams.get("type") || "";
-  const lat = Number(searchParams.get("lat"));
-  const lng = Number(searchParams.get("lng"));
-  const hasLocation = Number.isFinite(lat) && Number.isFinite(lng);
+  const point = readLatLng(searchParams);
+  const hasLocation = Boolean(point);
+  const { lat, lng } = point || {};
 
   if (!query) {
     return NextResponse.json({ results: [] });
@@ -29,40 +31,37 @@ export async function GET(request) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const url = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
-  url.searchParams.set("query", query);
-  if (hasLocation) {
-    url.searchParams.set("location", `${lat},${lng}`);
-    url.searchParams.set("radius", "30000");
-  }
-  if (type) {
-    url.searchParams.set("type", type);
-  }
-  url.searchParams.set("language", "es");
-  url.searchParams.set("key", apiKey);
+  try {
+    const data = await placesRequest("places:searchText", {
+      apiKey,
+      fieldMask: FIELDS,
+      body: {
+        textQuery: query,
+        pageSize: 6,
+        ...(hasLocation ? { locationBias: circle(lat, lng, 30000) } : {}),
+        ...(type ? { includedType: type } : {}),
+      },
+    });
 
-  const data = await (await fetch(url)).json();
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    return NextResponse.json({ error: data.error_message || data.status }, { status: 502 });
+    const results = (data.places || []).slice(0, 6).map((place) => {
+      const location = toLatLng(place.location);
+      const knownType = (place.types || []).find((item) => CATEGORY_LABELS[item]);
+      return {
+        placeId: place.id,
+        name: place.displayName?.text || "",
+        lat: location.lat,
+        lng: location.lng,
+        category: knownType ? CATEGORY_LABELS[knownType] : null,
+        rating: place.rating ?? null,
+        openNow: openNow(place),
+        distanceKm:
+          hasLocation && location.lat !== null ? Math.round(distanceKm({ lat, lng }, location) * 10) / 10 : null,
+        image: firstPhotoUrl(place),
+      };
+    });
+
+    return NextResponse.json({ results });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 502 });
   }
-
-  const results = (data.results || []).slice(0, 6).map((place) => {
-    const location = place.geometry?.location;
-    const knownType = (place.types || []).find((item) => CATEGORY_LABELS[item]);
-    return {
-      placeId: place.place_id,
-      name: place.name,
-      lat: location?.lat ?? null,
-      lng: location?.lng ?? null,
-      category: knownType ? CATEGORY_LABELS[knownType] : null,
-      rating: place.rating ?? null,
-      openNow: typeof place.opening_hours?.open_now === "boolean" ? place.opening_hours.open_now : null,
-      distanceKm: hasLocation && location ? Math.round(distanceKm({ lat, lng }, location) * 10) / 10 : null,
-      image: place.photos?.[0]?.photo_reference
-        ? placePhotoUrl(place.photos[0].photo_reference, place.place_id)
-        : null,
-    };
-  });
-
-  return NextResponse.json({ results });
 }

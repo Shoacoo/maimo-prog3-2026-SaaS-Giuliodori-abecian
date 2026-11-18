@@ -9,6 +9,7 @@ import TripHero from "@/components/trips/TripHero";
 import TripMapPanel from "@/components/trips/TripMapPanel";
 import PlanningCard from "@/components/trips/info/PlanningCard";
 import CompanionsCard from "@/components/trips/info/CompanionsCard";
+import { getUserProfiles } from "@/lib/users/users";
 import FavoritesSection from "@/components/trips/info/FavoritesSection";
 import { SetTripPill } from "@/components/dashboard/TripPillProvider";
 import { TripPlanProvider } from "@/components/trips/TripPlanProvider";
@@ -47,6 +48,10 @@ export default async function TripDetailPage({ params }) {
 
   const progress = planningProgress(trip);
   const dateList = listTripDates(trip.startDate, trip.endDate);
+  // Dueño del viaje (para la tarjeta de compañeros) y "(vos)" en tu fila.
+  const owner = (await getUserProfiles([trip.userId]))[trip.userId] || null;
+  const ownerRow = owner ? { ...owner, isYou: trip.userId === user.uid } : null;
+  const companions = trip.companions.map((person) => ({ ...person, isYou: Boolean(person.uid) && person.uid === user.uid }));
 
   return (
     <TripPlanProvider plan={buildTripPlan(trip)}>
@@ -72,7 +77,12 @@ export default async function TripDetailPage({ params }) {
 
             <div className="flex min-w-0 flex-1 flex-col gap-5 xl:min-w-[280px]">
               <PlanningCard progress={progress} favoritesCount={trip.favorites.length} />
-              <CompanionsCard tripId={trip.id} companions={trip.companions} />
+              <CompanionsCard
+                tripId={trip.id}
+                companions={companions}
+                owner={ownerRow}
+                canManage={trip.role === "owner"}
+              />
             </div>
           </div>
 

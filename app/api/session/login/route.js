@@ -6,6 +6,7 @@ import {
 } from "@/lib/firebase/session";
 import { getAdminAuth } from "@/lib/firebase/admin";
 import { ensureUserDoc } from "@/lib/users/users";
+import { linkPendingInvites } from "@/lib/trips/trips";
 
 export async function POST(request) {
   const { idToken } = await request.json();
@@ -32,6 +33,15 @@ export async function POST(request) {
       displayName: decoded.name,
       photoURL: decoded.picture,
     });
+
+    // Viajes a los que lo invitaron por email antes de tener cuenta: ahora
+    // los ve y los puede editar. Si falla no bloquea el inicio de sesion.
+    await linkPendingInvites({
+      uid: decoded.uid,
+      email: decoded.email,
+      name: decoded.name,
+      photoURL: decoded.picture,
+    }).catch(() => {});
 
     const response = NextResponse.json({ ok: true });
 

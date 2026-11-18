@@ -4,11 +4,20 @@ import { getCurrentUser } from "@/lib/firebase/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export const metadata = { title: "Ingresar | Triphy" };
+
+// Solo se aceptan destinos internos del dashboard (evita redirecciones abiertas).
+function safeNext(next) {
+  return typeof next === "string" && next.startsWith("/dashboard") ? next : "/dashboard/trips";
+}
+
+export default async function LoginPage({ searchParams }) {
   const user = await getCurrentUser();
+  const { next } = await searchParams;
 
   if (user) {
-    redirect("/dashboard/trips");
+    // Ya tiene sesion (por ejemplo, abrio el link de una invitacion): directo al destino.
+    redirect(safeNext(next));
   }
 
   return (

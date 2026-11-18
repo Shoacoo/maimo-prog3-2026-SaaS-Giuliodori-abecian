@@ -23,7 +23,10 @@ function tripStats(trip) {
   };
 }
 
-export default function TripCard({ trip }) {
+// En viajes compartidos (role "editor") se muestra de quién es y no se puede
+// borrar: eso queda solo para el dueño.
+export default function TripCard({ trip, ownerName }) {
+  const shared = trip.role === "editor";
   const cover = trip.destinations[0]?.image;
   const completed = placeholderActivities(trip.id);
   const percent = Math.round((completed / TOTAL_ACTIVITIES) * 100);
@@ -34,6 +37,15 @@ export default function TripCard({ trip }) {
         <div className="relative h-40 w-full bg-gray-100">
           {cover ? (
             <Image src={cover} alt={trip.name} fill sizes="320px" className="object-cover" />
+          ) : null}
+          {shared ? (
+            <span className="absolute left-3 top-3 inline-flex max-w-[calc(100%-24px)] items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#7386f5] shadow">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+                <circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="2" />
+                <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span className="truncate">Compartido{ownerName ? ` por ${ownerName}` : ""}</span>
+            </span>
           ) : null}
         </div>
         <div className="p-4">
@@ -55,7 +67,7 @@ export default function TripCard({ trip }) {
         </div>
       </Link>
 
-      <DeleteTripButton tripId={trip.id} tripName={trip.name} stats={tripStats(trip)} />
+      {shared ? null : <DeleteTripButton tripId={trip.id} tripName={trip.name} stats={tripStats(trip)} />}
     </div>
   );
 }

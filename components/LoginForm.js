@@ -27,9 +27,11 @@ function needsVerification(user) {
 // Manda el email de verificacion de Firebase. El enlace vuelve a /login con
 // un aviso de "cuenta verificada"; si el dominio no esta autorizado en
 // Firebase como URL de retorno, se manda igual pero sin ese redireccionamiento.
-async function sendVerification(user) {
+async function sendVerification(user, nextUrl = "/dashboard/trips") {
   try {
-    await sendEmailVerification(user, { url: `${window.location.origin}/login?verified=1` });
+    // Conserva el destino (por ejemplo, el viaje de una invitacion) para despues de verificar.
+    const next = nextUrl && nextUrl !== "/dashboard/trips" ? `&next=${encodeURIComponent(nextUrl)}` : "";
+    await sendEmailVerification(user, { url: `${window.location.origin}/login?verified=1${next}` });
   } catch (err) {
     if (err?.code !== "auth/unauthorized-continue-uri" && err?.code !== "auth/invalid-continue-uri") throw err;
     await sendEmailVerification(user);
@@ -209,10 +211,11 @@ function mapAuthError(err, mode) {
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next") || "/dashboard/trips";
+  const nextParam = searchParams.get("next");
+  const nextUrl = nextParam && nextParam.startsWith("/dashboard") ? nextParam : "/dashboard/trips";
   const justVerified = searchParams.get("verified") === "1";
-  // signin | signup | forgot | sent
-  const [mode, setMode] = useState("signin");
+  // signin | signup | forgot | sent ("?registro=1" viene del email de invitacion)
+  const [mode, setMode] = useState(searchParams.get("registro") === "1" ? "signup" : "signin");
   // Que mando la pantalla "Revisá tu correo": reset (recuperar contraseña),
   // verify (recien registrado) o unverified (intento entrar sin verificar).
   const [sentKind, setSentKind] = useState("reset");
@@ -267,7 +270,7 @@ export default function LoginForm() {
     if (!user) return goTo("signin");
     setLoading(true);
     try {
-      await sendVerification(user);
+      await sendVerification(user, nextUrl);
       showSent(sentKind);
     } catch (err) {
       setErrors(mapAuthError(err, "signup"));
@@ -324,7 +327,7 @@ export default function LoginForm() {
       await updateProfile(credential.user, { displayName: name.trim() });
       // No entra directo: primero tiene que confirmar el email (diseño "Revisá tu correo").
       try {
-        await sendVerification(credential.user);
+        await sendVerification(credential.user, nextUrl);
         showSent("verify");
       } catch {
         // La cuenta ya se creo: mostramos la pantalla igual para que pueda reenviar.

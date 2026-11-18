@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { placePhotoUrl } from "@/lib/places/photoUrl";
+import { PLACE_ID_RE, firstPhotoUrl, placesRequest, toLatLng } from "@/lib/places/google";
 
+// Datos de una ciudad elegida en el buscador (crear viaje): nombre, pais,
+// coordenadas y foto. Places API (New), mismo formato que antes.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const placeId = searchParams.get("placeId");
 
-  if (!placeId) {
+  if (!placeId || !PLACE_ID_RE.test(placeId)) {
     return NextResponse.json({ error: "Falta placeId." }, { status: 400 });
   }
 
@@ -14,32 +16,25 @@ export async function GET(request) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
-  url.searchParams.set("place_id", placeId);
-  url.searchParams.set("fields", "name,geometry,address_component,photo");
-  url.searchParams.set("language", "es");
-  url.searchParams.set("key", apiKey);
+  try {
+    const place = await placesRequest(`places/${placeId}`, {
+      apiKey,
+      fieldMask: "id,displayName,location,addressComponents,photos",
+    });
 
-  const response = await fetch(url);
-  const data = await response.json();
+    const countryComponent = (place.addressComponents || []).find((component) => component.types?.includes("country"));
+    const location = toLatLng(place.location);
 
-  if (data.status !== "OK") {
-    return NextResponse.json({ error: data.error_message || data.status }, { status: 502 });
+    return NextResponse.json({
+      placeId,
+      name: place.displayName?.text || "",
+      country: countryComponent?.longText || "",
+      countryCode: countryComponent?.shortText || "",
+      lat: location.lat,
+      lng: location.lng,
+      image: firstPhotoUrl({ ...place, id: place.id || placeId }),
+    });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 502 });
   }
-
-  const result = data.result;
-  const countryComponent = result.address_components?.find((component) => component.types.includes("country"));
-  const country = countryComponent?.long_name || "";
-  const countryCode = countryComponent?.short_name || "";
-  const photoRef = result.photos?.[0]?.photo_reference || null;
-
-  return NextResponse.json({
-    placeId,
-    name: result.name,
-    country,
-    countryCode,
-    lat: result.geometry?.location?.lat,
-    lng: result.geometry?.location?.lng,
-    image: photoRef ? placePhotoUrl(photoRef, placeId) : null,
-  });
 }

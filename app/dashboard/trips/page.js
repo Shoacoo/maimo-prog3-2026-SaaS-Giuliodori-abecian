@@ -8,6 +8,7 @@ import TripCard from "@/components/trips/TripCard";
 import RouteFlags from "@/components/trips/RouteFlags";
 import GoogleMap from "@/components/map/GoogleMap";
 import { getNextDestination } from "@/lib/trips/nextDestination";
+import { getUserProfiles } from "@/lib/users/users";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export default async function TripsPage() {
   }
 
   const trips = await listUserTrips(user.uid);
+  // Dueños de los viajes compartidos con este usuario ("Compartido por ...").
+  const owners = await getUserProfiles(trips.filter((trip) => trip.role === "editor").map((trip) => trip.userId));
 
   const today = new Date().toISOString().slice(0, 10);
   const nextTrip = trips
@@ -73,7 +76,7 @@ export default async function TripsPage() {
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
+            <TripCard key={trip.id} trip={trip} ownerName={owners[trip.userId]?.name} />
           ))}
 
           <Link

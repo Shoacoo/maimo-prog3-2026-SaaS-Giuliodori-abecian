@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { circle, placesRequest, readLatLng } from "@/lib/places/google";
 
+// Autocompletado (Places API New). Sin coordenadas busca ciudades (crear
+// viaje); con coordenadas busca cualquier lugar cerca de ese punto (agregar un
+// lugar a un dia del itinerario). Devuelve el mismo formato que antes.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
-  const lat = Number(searchParams.get("lat"));
-  const lng = Number(searchParams.get("lng"));
-  const hasLocationBias = Number.isFinite(lat) && Number.isFinite(lng);
+  const point = readLatLng(searchParams);
 
   if (!query) {
     return NextResponse.json({ predictions: [] });
@@ -16,32 +18,26 @@ export async function GET(request) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const url = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
-  url.searchParams.set("input", query);
-  if (hasLocationBias) {
-    // General place/business search (restaurants, museums, etc.), biased near
-    // a given point - used when searching for a specific place to add to an
-    // itinerary day, as opposed to the city search below.
-    url.searchParams.set("location", `${lat},${lng}`);
-    url.searchParams.set("radius", "50000");
-  } else {
-    url.searchParams.set("types", "(cities)");
+  try {
+    const data = await placesRequest("places:autocomplete", {
+      apiKey,
+      body: {
+        input: query,
+        ...(point ? { locationBias: circle(point.lat, point.lng, 50000) } : { includedPrimaryTypes: ["(cities)"] }),
+      },
+    });
+
+    const predictions = (data.suggestions || [])
+      .map((suggestion) => suggestion.placePrediction)
+      .filter(Boolean)
+      .map((prediction) => ({
+        placeId: prediction.placeId,
+        mainText: prediction.structuredFormat?.mainText?.text || prediction.text?.text || "",
+        secondaryText: prediction.structuredFormat?.secondaryText?.text || "",
+      }));
+
+    return NextResponse.json({ predictions });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 502 });
   }
-  url.searchParams.set("language", "es");
-  url.searchParams.set("key", apiKey);
-
-  const response = await fetch(url);
-  const data = await response.json();
-
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    return NextResponse.json({ error: data.error_message || data.status }, { status: 502 });
-  }
-
-  const predictions = (data.predictions || []).map((prediction) => ({
-    placeId: prediction.place_id,
-    mainText: prediction.structured_formatting?.main_text || prediction.description,
-    secondaryText: prediction.structured_formatting?.secondary_text || "",
-  }));
-
-  return NextResponse.json({ predictions });
 }

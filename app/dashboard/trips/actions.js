@@ -29,6 +29,7 @@ import {
 } from "@/lib/trips/trips";
 import { deletePhotoFile } from "@/lib/memories/photoStore";
 import { sanitizeEntry } from "@/lib/memories/validation";
+import { resolveCompanion } from "@/lib/users/users";
 
 const NOTE_COLOR_IDS = new Set(["yellow", "rose", "sky", "violet"]);
 
@@ -96,16 +97,23 @@ function parseCompanions(raw) {
   if (!Array.isArray(parsed)) return [];
 
   const seen = new Set();
+  // Del navegador solo se toma email y nombre; si tiene cuenta lo decide el
+  // servidor en resolveCompanions.
   return parsed
     .map((item) => ({
-      uid: item.uid ? String(item.uid) : null,
       email: String(item.email || "").trim().toLowerCase(),
-      name: String(item.name || "").trim(),
-      photoURL: item.photoURL ? String(item.photoURL) : null,
-      status: item.uid ? "added" : "invited",
+      name: String(item.name || "").trim().slice(0, 80),
     }))
     .filter((item) => EMAIL_RE.test(item.email) && !seen.has(item.email) && seen.add(item.email))
     .slice(0, 20);
+}
+
+// Si el email ya tiene cuenta en Triphy, el compañero queda como miembro del
+// viaje en el momento (ve y edita); si no, queda invitado hasta registrarse.
+// Nunca se suma al propio dueño.
+async function resolveCompanions(user, list) {
+  const ownEmail = String(user.email || "").toLowerCase();
+  return Promise.all(list.filter((item) => item.email !== ownEmail).map(resolveCompanion));
 }
 
 function parseTripForm(formData) {
@@ -154,9 +162,13 @@ export async function addCompanionToTrip(tripId, person) {
     redirect("/login");
   }
 
-  const [companion] = parseCompanions(JSON.stringify([person]));
-  if (!companion) {
+  const [parsed] = parseCompanions(JSON.stringify([person]));
+  if (!parsed) {
     throw new Error("El email no es valido.");
+  }
+  const [companion] = await resolveCompanions(user, [parsed]);
+  if (!companion) {
+    throw new Error("No podés sumarte a vos mismo.");
   }
   const trip = await addTripCompanion(user.uid, tripId, companion);
   revalidatePath(`/dashboard/trips/${tripId}`);
@@ -172,11 +184,12 @@ export async function createTrip(formData) {
 
   // El formulario muestra el modal "viaje creado" (diseño 03e), asi que
   // devolvemos el id en vez de redirigir.
-  const trip = parseTripForm(formData);
+  const parsed = parseTripForm(formData);
+  const trip = { ...parsed, companions: await resolveCompanions(user, parsed.companions) };
   const id = await createUserTrip(user.uid, trip);
   revalidatePath("/dashboard/trips");
   // Invitaciones por email a los compañeros (si falla el envio, el viaje igual queda creado).
-  const invites = await inviteCompanions(user, trip, trip.companions);
+  const invites = await inviteCompanions(user, { ...trip, id }, trip.companions);
   return { id, invites };
 }
 
