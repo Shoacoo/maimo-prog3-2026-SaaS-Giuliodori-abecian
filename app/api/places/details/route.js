@@ -1,5 +1,26 @@
 import { NextResponse } from "next/server";
 import { placePhotoUrl } from "@/lib/places/photoUrl";
+import { cached, DAY, getApiKey, placeDetailsRequest } from "@/lib/places/google";
+
+// Datos de la ciudad elegida al crear un viaje (Place Details New, solo los
+// campos que se guardan). Una ciudad no cambia: se cachea 30 dias.
+async function cityDetails(placeId) {
+  const result = await placeDetailsRequest(placeId, "displayName,location,addressComponents,photos");
+  const countryComponent = result.addressComponents?.find((component) => component.types?.includes("country"));
+  const photoName = result.photos?.[0]?.name || null;
+
+  return {
+    placeId,
+    name: result.displayName?.text || "",
+    country: countryComponent?.longText || "",
+    countryCode: countryComponent?.shortText || "",
+    lat: result.location?.latitude,
+    lng: result.location?.longitude,
+    image: photoName ? placePhotoUrl(photoName, placeId) : null,
+  };
+}
+
+const cachedCityDetails = cached(cityDetails, "city-details", 30 * DAY);
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -9,37 +30,13 @@ export async function GET(request) {
     return NextResponse.json({ error: "Falta placeId." }, { status: 400 });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
+  if (!getApiKey()) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
-  url.searchParams.set("place_id", placeId);
-  url.searchParams.set("fields", "name,geometry,address_component,photo");
-  url.searchParams.set("language", "es");
-  url.searchParams.set("key", apiKey);
-
-  const response = await fetch(url);
-  const data = await response.json();
-
-  if (data.status !== "OK") {
-    return NextResponse.json({ error: data.error_message || data.status }, { status: 502 });
+  try {
+    return NextResponse.json(await cachedCityDetails(placeId));
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 502 });
   }
-
-  const result = data.result;
-  const countryComponent = result.address_components?.find((component) => component.types.includes("country"));
-  const country = countryComponent?.long_name || "";
-  const countryCode = countryComponent?.short_name || "";
-  const photoRef = result.photos?.[0]?.photo_reference || null;
-
-  return NextResponse.json({
-    placeId,
-    name: result.name,
-    country,
-    countryCode,
-    lat: result.geometry?.location?.lat,
-    lng: result.geometry?.location?.lng,
-    image: photoRef ? placePhotoUrl(photoRef, placeId) : null,
-  });
 }

@@ -1,47 +1,61 @@
 import { NextResponse } from "next/server";
+import { cached, circle, DAY, getApiKey, placesPost, roundCoord } from "@/lib/places/google";
+
+// Autocomplete de Places API (New). Sin coordenadas busca ciudades (crear
+// viaje); con coordenadas busca cualquier lugar cerca de ese punto (agregar
+// al itinerario). Cacheado un dia por texto + zona.
+async function autocomplete(query, lat, lng) {
+  const body = { input: query, languageCode: "es" };
+  if (lat !== null && lng !== null) {
+    body.locationBias = circle(lat, lng, 50000);
+  } else {
+    body.includedPrimaryTypes = ["(cities)"];
+  }
+
+  const data = await placesPost(
+    "autocomplete",
+    body,
+    "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat",
+  );
+
+  return (data.suggestions || [])
+    .map((suggestion) => suggestion.placePrediction)
+    .filter(Boolean)
+    .map((prediction) => ({
+      placeId: prediction.placeId,
+      mainText: prediction.structuredFormat?.mainText?.text || prediction.text?.text || "",
+      secondaryText: prediction.structuredFormat?.secondaryText?.text || "",
+    }));
+}
+
+const cachedAutocomplete = cached(autocomplete, "autocomplete", DAY);
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
-  const hasLocationBias = Number.isFinite(lat) && Number.isFinite(lng);
+  const hasLocationBias = searchParams.has("lat") && Number.isFinite(lat) && Number.isFinite(lng);
 
   if (!query) {
     return NextResponse.json({ predictions: [] });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
+  if (!getApiKey()) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const url = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
-  url.searchParams.set("input", query);
-  if (hasLocationBias) {
-    // General place/business search (restaurants, museums, etc.), biased near
-    // a given point - used when searching for a specific place to add to an
-    // itinerary day, as opposed to the city search below.
-    url.searchParams.set("location", `${lat},${lng}`);
-    url.searchParams.set("radius", "50000");
-  } else {
-    url.searchParams.set("types", "(cities)");
+  try {
+    const predictions = await cachedAutocomplete(
+      query.toLowerCase(),
+      hasLocationBias ? roundCoord(lat) : null,
+      hasLocationBias ? roundCoord(lng) : null,
+    );
+    return NextResponse.json(
+      { predictions },
+      { headers: { "Cache-Control": "private, max-age=3600" } },
+    );
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 502 });
   }
-  url.searchParams.set("language", "es");
-  url.searchParams.set("key", apiKey);
-
-  const response = await fetch(url);
-  const data = await response.json();
-
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    return NextResponse.json({ error: data.error_message || data.status }, { status: 502 });
-  }
-
-  const predictions = (data.predictions || []).map((prediction) => ({
-    placeId: prediction.place_id,
-    mainText: prediction.structured_formatting?.main_text || prediction.description,
-    secondaryText: prediction.structured_formatting?.secondary_text || "",
-  }));
-
-  return NextResponse.json({ predictions });
 }

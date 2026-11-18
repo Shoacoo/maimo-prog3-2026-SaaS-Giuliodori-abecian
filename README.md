@@ -74,6 +74,8 @@ Cualquier persona que este organizando un viaje (de un fin de semana o de varias
 
 1. Instalar dependencias: `npm install`
 2. Copiar `.env.example` a `.env` y completar las credenciales de Firebase y de Google Maps/Places.
+   La key de Google necesita solo tres APIs habilitadas: **Maps JavaScript API**, **Places API (New)** y **Routes API**
+   (no usa Directions ni Places viejas). La usa tambien el servidor, asi que no puede tener restriccion de "sitios web".
 3. En Firebase Console habilitar Authentication (Email/Password y Google) y Cloud Firestore.
 4. Levantar el servidor: `npm run dev`
 5. Abrir `http://localhost:3000`

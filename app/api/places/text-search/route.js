@@ -1,68 +1,96 @@
 import { NextResponse } from "next/server";
 import { CATEGORY_LABELS } from "@/lib/places/nearby";
 import { placePhotoUrl } from "@/lib/places/photoUrl";
+import {
+  cached,
+  circle,
+  compactHours,
+  DAY,
+  distanceMeters,
+  getApiKey,
+  openStatus,
+  placesPost,
+  roundCoord,
+} from "@/lib/places/google";
 
-function distanceKm(a, b) {
-  const rad = (deg) => (deg * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(h));
+const FIELD_MASK = [
+  "places.id",
+  "places.displayName",
+  "places.location",
+  "places.types",
+  "places.rating",
+  "places.regularOpeningHours",
+  "places.utcOffsetMinutes",
+  "places.photos",
+].join(",");
+
+// Text Search (New): foto, rating, tipo y horarios en una sola llamada.
+// Se cachea un dia por texto + tipo + zona; el "abierto ahora" se calcula
+// al responder, asi no queda viejo.
+async function textSearch(query, type, lat, lng) {
+  const body = { textQuery: query, languageCode: "es", pageSize: 6 };
+  if (lat !== null && lng !== null) {
+    body.locationBias = circle(lat, lng, 30000);
+  }
+  if (type) {
+    body.includedType = type;
+  }
+
+  const data = await placesPost("searchText", body, FIELD_MASK);
+  return (data.places || []).slice(0, 6).map((place) => {
+    const knownType = (place.types || []).find((item) => CATEGORY_LABELS[item]);
+    return {
+      placeId: place.id,
+      name: place.displayName?.text || "",
+      lat: place.location?.latitude ?? null,
+      lng: place.location?.longitude ?? null,
+      category: knownType ? CATEGORY_LABELS[knownType] : null,
+      rating: place.rating ?? null,
+      periods: compactHours(place.regularOpeningHours),
+      utcOffsetMinutes: place.utcOffsetMinutes ?? null,
+      image: place.photos?.[0]?.name ? placePhotoUrl(place.photos[0].name, place.id) : null,
+    };
+  });
 }
 
-// Buscador del itinerario (diseño 05b): Text Search devuelve foto, rating,
-// tipo y si esta abierto en una sola llamada, a diferencia del autocomplete.
+const cachedTextSearch = cached(textSearch, "text-search", DAY);
+
+// Buscador del itinerario (diseño 05b).
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
   const type = searchParams.get("type") || "";
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
-  const hasLocation = Number.isFinite(lat) && Number.isFinite(lng);
+  const hasLocation = searchParams.has("lat") && searchParams.has("lng") && Number.isFinite(lat) && Number.isFinite(lng);
 
   if (!query) {
     return NextResponse.json({ results: [] });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
+  if (!getApiKey()) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
-  const url = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
-  url.searchParams.set("query", query);
-  if (hasLocation) {
-    url.searchParams.set("location", `${lat},${lng}`);
-    url.searchParams.set("radius", "30000");
-  }
-  if (type) {
-    url.searchParams.set("type", type);
-  }
-  url.searchParams.set("language", "es");
-  url.searchParams.set("key", apiKey);
+  try {
+    const places = await cachedTextSearch(
+      query.toLowerCase(),
+      type,
+      hasLocation ? roundCoord(lat) : null,
+      hasLocation ? roundCoord(lng) : null,
+    );
 
-  const data = await (await fetch(url)).json();
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    return NextResponse.json({ error: data.error_message || data.status }, { status: 502 });
+    const results = places.map(({ periods, utcOffsetMinutes, ...place }) => ({
+      ...place,
+      openNow: openStatus(periods, utcOffsetMinutes).openNow,
+      distanceKm:
+        hasLocation && place.lat !== null && place.lng !== null
+          ? Math.round(distanceMeters({ lat, lng }, place) / 100) / 10
+          : null,
+    }));
+
+    return NextResponse.json({ results });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 502 });
   }
-
-  const results = (data.results || []).slice(0, 6).map((place) => {
-    const location = place.geometry?.location;
-    const knownType = (place.types || []).find((item) => CATEGORY_LABELS[item]);
-    return {
-      placeId: place.place_id,
-      name: place.name,
-      lat: location?.lat ?? null,
-      lng: location?.lng ?? null,
-      category: knownType ? CATEGORY_LABELS[knownType] : null,
-      rating: place.rating ?? null,
-      openNow: typeof place.opening_hours?.open_now === "boolean" ? place.opening_hours.open_now : null,
-      distanceKm: hasLocation && location ? Math.round(distanceKm({ lat, lng }, location) * 10) / 10 : null,
-      image: place.photos?.[0]?.photo_reference
-        ? placePhotoUrl(place.photos[0].photo_reference, place.place_id)
-        : null,
-    };
-  });
-
-  return NextResponse.json({ results });
 }
