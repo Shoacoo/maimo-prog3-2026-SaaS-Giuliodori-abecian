@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cached, DAY, getApiKey, photoMediaRequest, placeDetailsRequest } from "@/lib/places/google";
 
 // Imagen de reemplazo (PNG liso color arena) cuando Google no devuelve la foto (key rechazada,
 // cuota agotada, referencia vencida). Responder siempre con una imagen no
@@ -18,58 +19,83 @@ function placeholder() {
   });
 }
 
-// placeId -> photo_reference fresca, para no pedir Place Details en cada foto.
-const freshRefs = new Map();
+// En Places API (New) una foto se identifica por su "name"
+// (places/{placeId}/photos/{id}). Las fotos guardadas antes en Firestore
+// tienen la photo_reference de la API vieja, que la nueva no entiende: para
+// esas usamos el placeId y pedimos la primera foto actual del lugar.
+function isNewPhotoName(ref) {
+  return typeof ref === "string" && /^places\/[^/]+\/photos\/[^/]+$/.test(ref);
+}
 
-async function fetchPhoto(ref, apiKey) {
-  const url = new URL("https://maps.googleapis.com/maps/api/place/photo");
-  url.searchParams.set("maxwidth", "800");
-  url.searchParams.set("photo_reference", ref);
-  url.searchParams.set("key", apiKey);
+// photo name -> URL publica de la imagen (1 cobro de Place Photo por dia y foto).
+async function resolvePhotoUri(photoName) {
+  const data = await photoMediaRequest(photoName, 800);
+  if (!data.photoUri) throw new Error("Sin photoUri");
+  return data.photoUri;
+}
+const cachedPhotoUri = cached(resolvePhotoUri, "photo-uri", DAY);
 
-  const response = await fetch(url);
+// placeId -> name de su primera foto (field mask solo "photos").
+async function resolveFirstPhotoName(placeId) {
+  const data = await placeDetailsRequest(placeId, "photos");
+  return data.photos?.[0]?.name || null;
+}
+const cachedFirstPhotoName = cached(resolveFirstPhotoName, "first-photo", DAY);
+
+// Si una URL guardada en cache dejo de andar, la reemplazamos en memoria
+// hasta que venza la entrada vieja.
+const overrides = new Map();
+
+async function downloadImage(uri) {
+  const response = await fetch(uri, { cache: "no-store" });
   const contentType = response.headers.get("Content-Type") || "";
   if (!response.ok || !contentType.startsWith("image/")) {
     return null;
   }
-
   const body = await response.arrayBuffer();
   return body.byteLength > 0 ? { body, contentType } : null;
 }
 
-async function fetchFreshRef(placeId, apiKey) {
-  const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
-  url.searchParams.set("place_id", placeId);
-  url.searchParams.set("fields", "photos");
-  url.searchParams.set("key", apiKey);
+async function photoFromName(photoName) {
+  const known = overrides.get(photoName);
+  const uri = known || (await cachedPhotoUri(photoName).catch(() => null));
+  let photo = uri ? await downloadImage(uri).catch(() => null) : null;
 
-  const response = await fetch(url);
-  const data = await response.json();
-  return data.status === "OK" ? data.result?.photos?.[0]?.photo_reference || null : null;
+  if (!photo && !known) {
+    // La URL en cache pudo vencer: pedimos una nueva sin cache.
+    const freshUri = await resolvePhotoUri(photoName).catch(() => null);
+    if (freshUri && freshUri !== uri) {
+      overrides.set(photoName, freshUri);
+      photo = await downloadImage(freshUri).catch(() => null);
+    }
+  }
+  return photo;
 }
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const ref = searchParams.get("ref");
   const placeId = searchParams.get("placeId");
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  if ((!ref && !placeId) || !apiKey) {
+  if ((!ref && !placeId) || !getApiKey()) {
     return placeholder();
   }
 
   try {
-    // 1) La referencia guardada (o la fresca que ya conseguimos antes).
-    const cachedRef = placeId ? freshRefs.get(placeId) : null;
-    const firstRef = cachedRef || ref;
-    let photo = firstRef ? await fetchPhoto(firstRef, apiKey).catch(() => null) : null;
+    // 1) El name de foto de Places (New) que vino en la URL.
+    let photo = isNewPhotoName(ref) ? await photoFromName(ref) : null;
 
-    // 2) Si vencio, pedimos una referencia nueva con el placeId.
+    // 2) Referencia vieja o vencida: buscamos la foto actual por placeId.
     if (!photo && placeId) {
-      const freshRef = await fetchFreshRef(placeId, apiKey);
-      if (freshRef) {
-        freshRefs.set(placeId, freshRef);
-        photo = await fetchPhoto(freshRef, apiKey);
+      const name = await cachedFirstPhotoName(placeId).catch(() => null);
+      if (name && name !== ref) {
+        photo = await photoFromName(name);
+      }
+      if (!photo) {
+        const freshName = await resolveFirstPhotoName(placeId).catch(() => null);
+        if (freshName && freshName !== name && freshName !== ref) {
+          photo = await photoFromName(freshName);
+        }
       }
     }
 
@@ -80,7 +106,9 @@ export async function GET(request) {
     return new NextResponse(photo.body, {
       headers: {
         "Content-Type": photo.contentType,
-        "Cache-Control": "public, max-age=86400",
+        // Una semana en el navegador, en la CDN de Vercel y en el optimizador
+        // de next/image: la misma foto no vuelve a pasar por Google.
+        "Cache-Control": "public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400",
       },
     });
   } catch {

@@ -16,5 +16,7 @@ export async function GET(request) {
   }
 
   const places = await getNearbyPlaces(lat, lng, apiKey);
-  return NextResponse.json({ places });
+  // Los datos ya vienen de la cache del servidor; esto evita repetir el pedido
+  // al volver a abrir el mapa en la misma sesion.
+  return NextResponse.json({ places }, { headers: { "Cache-Control": "private, max-age=3600" } });
 }

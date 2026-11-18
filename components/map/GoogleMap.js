@@ -170,8 +170,8 @@ function loadLibraries() {
   if (!librariesPromise) {
     librariesPromise = import("@googlemaps/js-api-loader").then(async ({ setOptions, importLibrary }) => {
       setOptions({ key: API_KEY, v: "weekly" });
-      const [mapsLib, routesLib] = await Promise.all([importLibrary("maps"), importLibrary("routes")]);
-      return { ...mapsLib, ...routesLib };
+      // Solo la libreria "maps": las rutas salen de Routes API via /api/routes.
+      return importLibrary("maps");
     });
     librariesPromise.catch(() => {
       librariesPromise = null;
@@ -361,7 +361,21 @@ async function renderNearbyPlaces(map, markers, poiRef, activeGroupsRef, onSelec
   });
 }
 
-async function renderRoute(map, markers, routeRef, DirectionsService) {
+// La ruta por carretera la calcula el servidor con Routes API (/api/routes,
+// cacheada). Si no hay ruta (ej. cruza un oceano) o falla, dibujamos una
+// linea recta geodesica como respaldo en vez de no mostrar nada.
+async function fetchRoadPath(markers) {
+  const stops = markers.map((marker) => `${marker.lat},${marker.lng}`).join("|");
+  try {
+    const response = await fetch(`/api/routes?stops=${encodeURIComponent(stops)}`);
+    const data = await response.json();
+    return Array.isArray(data.path) && data.path.length > 1 ? data.path : null;
+  } catch {
+    return null;
+  }
+}
+
+async function renderRoute(map, markers, routeRef) {
   routeRef.current.polyline?.setMap(null);
   routeRef.current.polyline = null;
   if (routeRef.current.animation) {
@@ -372,39 +386,22 @@ async function renderRoute(map, markers, routeRef, DirectionsService) {
   const requestId = (routeRef.current.requestId || 0) + 1;
   routeRef.current.requestId = requestId;
 
-  if (markers.length < 2) {
+  const stops = markers.filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lng));
+  if (stops.length < 2) {
     return;
   }
 
-  const [origin, ...rest] = markers;
-  const destination = rest[rest.length - 1];
-  const waypoints = rest.slice(0, -1).map((stop) => ({ location: { lat: stop.lat, lng: stop.lng }, stopover: true }));
+  const roadPath = await fetchRoadPath(stops);
+  if (routeRef.current.requestId !== requestId) {
+    return;
+  }
 
-  try {
-    const directionsService = new DirectionsService();
-    const result = await directionsService.route({
-      origin: { lat: origin.lat, lng: origin.lng },
-      destination: { lat: destination.lat, lng: destination.lng },
-      waypoints,
-      optimizeWaypoints: false,
-      travelMode: window.google.maps.TravelMode.DRIVING,
-    });
-
-    if (routeRef.current.requestId !== requestId) {
-      return;
-    }
-
-    drawAnimatedPolyline(map, result.routes[0].overview_path, false, routeRef);
-  } catch {
-    // No hay ruta por carretera entre las paradas (ej. cruza un oceano) - mostramos
-    // una linea recta geodesica como respaldo en vez de no mostrar nada.
-    if (routeRef.current.requestId !== requestId) {
-      return;
-    }
-
+  if (roadPath) {
+    drawAnimatedPolyline(map, roadPath, false, routeRef);
+  } else {
     drawAnimatedPolyline(
       map,
-      markers.map((marker) => ({ lat: marker.lat, lng: marker.lng })),
+      stops.map((marker) => ({ lat: marker.lat, lng: marker.lng })),
       true,
       routeRef,
     );
@@ -460,7 +457,6 @@ export default function GoogleMap({
   const markersRef = useRef([]);
   const routeRef = useRef({ polyline: null, animation: null, requestId: 0 });
   const poiRef = useRef({ markers: [], requestId: 0 });
-  const directionsServiceRef = useRef(null);
   const markersData = useRef(markers);
   markersData.current = markers;
 
@@ -522,12 +518,10 @@ export default function GoogleMap({
       if (!libraries) {
         return;
       }
-      const { Map, DirectionsService } = libraries;
+      const { Map } = libraries;
       if (cancelled || !containerRef.current) {
         return;
       }
-
-      directionsServiceRef.current = DirectionsService;
 
       const initialCenter = center || markersData.current[0] || DEFAULT_CENTER;
       mapRef.current = new Map(containerRef.current, {
@@ -551,7 +545,7 @@ export default function GoogleMap({
       });
 
       renderMarkers(mapRef.current, markersData.current, markersRef, markerStyle);
-      renderRoute(mapRef.current, markersData.current, routeRef, DirectionsService);
+      renderRoute(mapRef.current, markersData.current, routeRef);
       if (showNearbyPlaces) {
         renderNearbyPlaces(mapRef.current, markersData.current, poiRef, activeGroupsRef, handleSelectPlace);
         mapRef.current.addListener("zoom_changed", () => updatePoiVisibility(mapRef.current, poiRef, activeGroupsRef));
@@ -577,12 +571,12 @@ export default function GoogleMap({
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || !directionsServiceRef.current) {
+    if (!mapRef.current) {
       return;
     }
 
     renderMarkers(mapRef.current, markers, markersRef, markerStyle);
-    renderRoute(mapRef.current, markers, routeRef, directionsServiceRef.current);
+    renderRoute(mapRef.current, markers, routeRef);
     if (showNearbyPlaces) {
       renderNearbyPlaces(mapRef.current, markers, poiRef, activeGroupsRef, handleSelectPlace);
     }
