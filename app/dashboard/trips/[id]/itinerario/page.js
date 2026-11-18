@@ -68,6 +68,8 @@ export default async function TripItineraryPage({ params }) {
               cityByDate={cityByDate}
               itemDetails={itemDetails}
               favorites={trip.favorites}
+              expenses={trip.expenses}
+              currency={trip.budget?.currency}
             />
           </div>
         </div>

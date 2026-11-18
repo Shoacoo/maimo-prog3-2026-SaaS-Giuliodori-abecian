@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { getUserTrip } from "@/lib/trips/trips";
-import { computeStopDateRanges, distributeDays, listTripDates } from "@/lib/trips/dates";
-import { getFlagUrl } from "@/lib/countries/flags";
+import { buildStops } from "@/lib/trips/stops";
 import TripHero from "@/components/trips/TripHero";
 import TripMapPanel from "@/components/trips/TripMapPanel";
 import MemoriesView from "@/components/trips/memories/MemoriesView";
@@ -13,25 +13,6 @@ import { buildTripPlan } from "@/lib/trips/progress";
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Recuerdos | Triphy" };
-
-// Cada parada del viaje con sus dias, para agrupar fotos y bitacora por ciudad.
-function buildStops(trip) {
-  const dateList = trip.startDate && trip.endDate ? listTripDates(trip.startDate, trip.endDate) : [];
-  const ranges = dateList.length
-    ? computeStopDateRanges(trip.startDate, distributeDays(dateList.length, trip.destinations.length))
-    : [];
-  return trip.destinations.map((destination, index) => {
-    const range = ranges[index];
-    return {
-      id: destination.id,
-      name: destination.name,
-      flagUrl: getFlagUrl(destination.countryCode, destination.country),
-      startDate: range?.startDate || null,
-      endDate: range?.endDate || null,
-      dates: range ? listTripDates(range.startDate, range.endDate) : [],
-    };
-  });
-}
 
 // Lugares del itinerario (con su dia) y favoritos (con su ciudad) para
 // sugerir donde se saco cada foto.
@@ -71,6 +52,22 @@ export default async function TripMemoriesPage({ params }) {
           <TripHero trip={trip} subtitle="Guardá las fotos y lo que viviste en cada lugar del viaje" />
 
           <div className="px-8 py-10 pb-32 sm:px-12">
+            {/* Acceso a Souvenirs: donde comprar regalos en las ciudades del viaje. */}
+            <Link
+              href={`/dashboard/trips/${trip.id}/souvenirs`}
+              className="mb-8 flex items-center gap-4 rounded-2xl border border-[#7386f5]/25 bg-[#7386f5]/5 px-5 py-4 transition hover:bg-[#7386f5]/10"
+            >
+              <span className="text-2xl" aria-hidden="true">
+                🎁
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold text-gray-900">Souvenirs para llevar</span>
+                <span className="block truncate text-[13px] text-gray-500">
+                  Dónde comprar regalos en {trip.destinations.map((destination) => destination.name).join(", ")}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold text-[#7386f5]">Ver lugares →</span>
+            </Link>
             <MemoriesView
               tripId={trip.id}
               tripName={trip.name}

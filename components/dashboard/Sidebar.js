@@ -27,13 +27,14 @@ const NAV_SECTIONS = [
   {
     id: "presupuesto",
     label: "Presupuesto",
-    children: [{ label: "Gastos", href: "/dashboard/proximamente", requiresTrip: true }],
+    children: [{ label: "Gastos", href: (tripId) => `/dashboard/trips/${tripId}/gastos`, requiresTrip: true }],
   },
   {
     id: "recuerdos",
     label: "Recuerdos",
     children: [
       { label: "Fotos y bitácora", href: (tripId) => `/dashboard/trips/${tripId}/recuerdos`, requiresTrip: true },
+      { label: "Souvenirs", href: (tripId) => `/dashboard/trips/${tripId}/souvenirs`, requiresTrip: true },
     ],
   },
 ];

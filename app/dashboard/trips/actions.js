@@ -26,7 +26,12 @@ import {
   removeMemoryPhoto,
   saveMemoryEntry,
   deleteMemoryEntry,
+  setTripBudget,
+  saveTripExpense,
+  deleteTripExpense,
 } from "@/lib/trips/trips";
+import { findActivity, sanitizeBudget, sanitizeExpense } from "@/lib/budget/validation";
+import { categoryForPlace } from "@/lib/budget/categories";
 import { deletePhotoFile } from "@/lib/memories/photoStore";
 import { sanitizeEntry } from "@/lib/memories/validation";
 import { resolveCompanion } from "@/lib/users/users";
@@ -428,4 +433,65 @@ export async function deleteMemoryEntryAction(tripId, entryId) {
   const { user } = await requireOwnedTrip(tripId);
   await deleteMemoryEntry(user.uid, tripId, String(entryId));
   revalidatePath(`/dashboard/trips/${tripId}/recuerdos`);
+}
+
+// --- Presupuesto y gastos ---
+// Cualquier miembro del viaje (dueño o compañero) puede definir el
+// presupuesto y anotar gastos. Todo se valida en el servidor.
+
+function revalidateBudget(tripId) {
+  revalidatePath(`/dashboard/trips/${tripId}/gastos`);
+  revalidatePath(`/dashboard/trips/${tripId}/itinerario`);
+}
+
+export async function setBudgetAction(tripId, budget) {
+  const { user } = await requireOwnedTrip(tripId);
+  const clean = sanitizeBudget(budget || {});
+  await setTripBudget(user.uid, tripId, clean);
+  revalidateBudget(tripId);
+  return clean;
+}
+
+export async function saveExpenseAction(tripId, expense) {
+  const { user, trip } = await requireOwnedTrip(tripId);
+  const clean = sanitizeExpense(trip, expense || {});
+  const saved = await saveTripExpense(user.uid, tripId, { ...clean, id: expense?.id ? String(expense.id) : undefined });
+  revalidateBudget(tripId);
+  return saved;
+}
+
+export async function deleteExpenseAction(tripId, expenseId) {
+  const { user } = await requireOwnedTrip(tripId);
+  await deleteTripExpense(user.uid, tripId, String(expenseId));
+  revalidateBudget(tripId);
+}
+
+// "¿Cuánto gastaste?" desde la ficha de una actividad del itinerario: crea,
+// actualiza o (sin monto) borra el gasto asociado a esa actividad.
+export async function saveActivityExpenseAction(tripId, activityId, { amount, paid }) {
+  const { user, trip } = await requireOwnedTrip(tripId);
+  const activity = findActivity(trip, String(activityId || ""));
+  if (!activity) {
+    throw new Error("La actividad ya no está en el itinerario.");
+  }
+  const existing = trip.expenses.find((item) => item.activityId === activity.id);
+  const hasAmount = amount !== null && amount !== undefined && String(amount).trim() !== "" && Number(amount) > 0;
+
+  if (!hasAmount) {
+    if (existing) await deleteTripExpense(user.uid, tripId, existing.id);
+    revalidateBudget(tripId);
+    return null;
+  }
+
+  const clean = sanitizeExpense(trip, {
+    title: existing?.title || activity.name,
+    amount,
+    category: existing?.category || categoryForPlace(activity.category),
+    date: activity.date,
+    activityId: activity.id,
+    paid,
+  });
+  const saved = await saveTripExpense(user.uid, tripId, { ...clean, id: existing?.id });
+  revalidateBudget(tripId);
+  return saved;
 }

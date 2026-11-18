@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -24,12 +24,14 @@ import StopOrdinal from "@/components/trips/StopOrdinal";
 import AddPlacePanel from "@/components/trips/itinerary/AddPlacePanel";
 import ActivityModal from "@/components/trips/itinerary/ActivityModal";
 import MonthCalendar from "@/components/trips/itinerary/MonthCalendar";
+import { DEFAULT_CURRENCY, formatMoney } from "@/lib/budget/categories";
 import {
   addPlaceToItinerary,
   removePlaceFromItinerary,
   updateItineraryItemAction,
   reorderItineraryItemsAction,
   moveItineraryItemAction,
+  saveActivityExpenseAction,
 } from "@/app/dashboard/trips/actions";
 
 const WEEKDAY_FORMATTER = new Intl.DateTimeFormat("es-AR", { weekday: "short" });
@@ -156,7 +158,7 @@ function PencilIcon() {
   );
 }
 
-function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging }) {
+function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging, spent = 0, currency }) {
   return (
     <div className="flex gap-4">
       <StopOrdinal order={order} highlighted={false} isLast={isLast} />
@@ -204,8 +206,14 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
             ) : null}
             {item.note ? <p className="line-clamp-1 text-xs italic text-gray-500">“{item.note}”</p> : null}
             {/* Abierto/Cerrado siempre abajo a la izquierda, haya o no descripcion. */}
-            <div className="mt-auto">
+            <div className="mt-auto flex items-center justify-between gap-2">
               <StatusLine details={details} />
+              {/* Lo que se gastó en esta actividad (se anota desde la ficha o en Gastos). */}
+              {spent > 0 ? (
+                <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+                  💰 {formatMoney(spent, currency)}
+                </span>
+              ) : null}
             </div>
           </div>
           {item.image ? (
@@ -218,7 +226,7 @@ function ActivityCard({ item, order, isLast, details, onEdit, onRemove, dragging
   );
 }
 
-function SortableActivityItem({ item, order, isLast, details, onEdit, onRemove }) {
+function SortableActivityItem({ item, order, isLast, details, onEdit, onRemove, spent, currency }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -228,7 +236,16 @@ function SortableActivityItem({ item, order, isLast, details, onEdit, onRemove }
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing">
-      <ActivityCard item={item} order={order} isLast={isLast} details={details} onEdit={onEdit} onRemove={onRemove} />
+      <ActivityCard
+        item={item}
+        order={order}
+        isLast={isLast}
+        details={details}
+        onEdit={onEdit}
+        onRemove={onRemove}
+        spent={spent}
+        currency={currency}
+      />
     </div>
   );
 }
@@ -247,7 +264,25 @@ function DayDropZone({ date, children }) {
   );
 }
 
-export default function ItineraryView({ tripId, dateList, itinerary, cityByDate, itemDetails, favorites = [] }) {
+export default function ItineraryView({
+  tripId,
+  dateList,
+  itinerary,
+  cityByDate,
+  itemDetails,
+  favorites = [],
+  expenses: initialExpenses = [],
+  currency = DEFAULT_CURRENCY,
+}) {
+  // Gastos asociados a cada actividad (se anotan desde su ficha).
+  const [expenses, setExpenses] = useState(initialExpenses);
+  const spentByActivity = useMemo(() => {
+    const totals = {};
+    expenses.forEach((expense) => {
+      if (expense.activityId) totals[expense.activityId] = (totals[expense.activityId] || 0) + (Number(expense.amount) || 0);
+    });
+    return totals;
+  }, [expenses]);
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState(dateList.includes(today) ? today : dateList[0]);
@@ -337,7 +372,7 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
     });
   }
 
-  function handleUpdateItem(date, itemId, { date: newDate, time, note, description }) {
+  function handleUpdateItem(date, itemId, { date: newDate, time, note, description, expense }) {
     const previous = localItinerary;
     const targetDate = newDate || date;
     const original = (localItinerary[date] || []).find((item) => item.id === itemId);
@@ -367,6 +402,11 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
           );
         }
         await updateItineraryItemAction(tripId, targetDate, itemId, { time, note, description });
+        // El gasto de la actividad se guarda en Presupuesto (solo si cambió).
+        if (expense?.changed) {
+          const saved = await saveActivityExpenseAction(tripId, itemId, { amount: expense.amount, paid: expense.paid });
+          setExpenses((current) => [...current.filter((item) => item.activityId !== itemId), ...(saved ? [saved] : [])]);
+        }
         router.refresh();
       } catch {
         setLocalItinerary(previous);
@@ -691,6 +731,8 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
                                 details={itemDetails[item.id]}
                                 onEdit={() => setEditingItemId(item.id)}
                                 onRemove={() => handleRemove(date, item.id)}
+                                spent={spentByActivity[item.id] || 0}
+                                currency={currency}
                               />
                             ))}
                           </div>
@@ -716,7 +758,15 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
 
           <DragOverlay>
             {activeItem ? (
-              <ActivityCard item={activeItem} order={activeIndex + 1} isLast details={itemDetails[activeItem.id]} dragging />
+              <ActivityCard
+                item={activeItem}
+                order={activeIndex + 1}
+                isLast
+                details={itemDetails[activeItem.id]}
+                dragging
+                spent={spentByActivity[activeItem.id] || 0}
+                currency={currency}
+              />
             ) : null}
           </DragOverlay>
         </DndContext>
@@ -728,6 +778,8 @@ export default function ItineraryView({ tripId, dateList, itinerary, cityByDate,
           date={editingDate}
           dateList={dateList}
           details={itemDetails[editingItem.id]}
+          expense={expenses.find((item) => item.activityId === editingItem.id) || null}
+          currency={currency}
           onCancel={() => setEditingItemId(null)}
           onSave={(data) => handleUpdateItem(editingDate, editingItem.id, data)}
           onRemove={() => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PlaceSheet from "@/components/map/PlaceSheet";
+import { useMapFocus } from "@/components/map/MapFocusProvider";
 
 const DEFAULT_CENTER = { lat: -34.6037, lng: -58.3816 };
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -205,6 +206,38 @@ function pillIcon(order, label) {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
     scaledSize: new window.google.maps.Size(width + 8, height + 8),
     anchor: new window.google.maps.Point(4 + 4 + 12, 3 + 16),
+  };
+}
+
+// Marcador del lugar elegido desde una tarjeta ("Ver en el mapa"): pastilla
+// celeste con el nombre y una punta que señala el lugar exacto.
+const FOCUS_ZOOM = 16;
+
+function focusIcon(label) {
+  const name = Array.from(String(label || "")).slice(0, 34).join("");
+  // Letras de ~7px; las japonesas/chinas/coreanas ocupan casi el doble.
+  const textWidth = Math.ceil(
+    Array.from(name).reduce((sum, char) => sum + (/[ᄀ-ᅟ⺀-꓏가-힣豈-﫿＀-｠]/.test(char) ? 12.5 : 7.2), 0),
+  );
+  const pad = 4;
+  const height = 30;
+  const tip = 9;
+  const width = 10 + 10 + 7 + textWidth + 12;
+  const tipX = pad + width / 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width + pad * 2}" height="${height + tip + pad * 2}">
+<defs><filter id="s" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.25"/></filter></defs>
+<g filter="url(#s)">
+<rect x="${pad}" y="${pad}" width="${width}" height="${height}" rx="15" fill="${ACCENT_COLOR}"/>
+<path d="M${tipX - 7} ${pad + height - 1} L${tipX} ${pad + height + tip} L${tipX + 7} ${pad + height - 1} Z" fill="${ACCENT_COLOR}"/>
+</g>
+<circle cx="${pad + 10 + 5}" cy="${pad + height / 2}" r="5" fill="#fff"/>
+<text x="${pad + 10 + 10 + 7}" y="${pad + height / 2}" dy="4" font-family="Rubik, Arial, sans-serif" font-size="12" font-weight="600" fill="#fff">${escapeXml(name)}</text>
+</svg>`;
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new window.google.maps.Size(width + pad * 2, height + tip + pad * 2),
+    anchor: new window.google.maps.Point(tipX, pad + height + tip),
   };
 }
 
@@ -464,6 +497,8 @@ export default function GoogleMap({
   const markersRef = useRef([]);
   const routeRef = useRef({ polyline: null, animation: null, requestId: 0 });
   const poiRef = useRef({ markers: [], requestId: 0 });
+  const focusMarkerRef = useRef(null);
+  const mapFocus = useMapFocus();
   const markersData = useRef(markers);
   markersData.current = markers;
 
@@ -572,6 +607,8 @@ export default function GoogleMap({
       }
       poiRef.current.markers.forEach((marker) => marker.setMap(null));
       poiRef.current.markers = [];
+      focusMarkerRef.current?.setMap(null);
+      focusMarkerRef.current = null;
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -624,6 +661,44 @@ export default function GoogleMap({
       cancelled = true;
     };
   }, [selectedPlace]);
+
+  // "Ver en el mapa" desde una tarjeta: se marca el lugar, se hace zoom y al
+  // tocar el marcador se abre la ficha (con el link a Google Maps para ir).
+  useEffect(() => {
+    if (!mapFocus) {
+      return undefined;
+    }
+
+    return mapFocus.register((place) => {
+      const map = mapRef.current;
+      const container = containerRef.current;
+      const lat = Number(place?.lat);
+      const lng = Number(place?.lng);
+      // Panel oculto (pantallas chicas), mapa sin cargar o key rechazada.
+      if (!map || !container?.getClientRects().length || window.__triphyMapsAuthFailed) return false;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+      const position = { lat, lng };
+      const sheetPlace = { ...place, id: place.placeId || place.id, lat, lng };
+      setSelectedPlace(null);
+      focusMarkerRef.current?.setMap(null);
+      const marker = new window.google.maps.Marker({
+        position,
+        map,
+        title: place.name,
+        icon: focusIcon(place.name),
+        zIndex: 1000,
+        animation: window.google.maps.Animation.DROP,
+      });
+      marker.addListener("click", () => handleSelectPlace(sheetPlace));
+      focusMarkerRef.current = marker;
+
+      map.panTo(position);
+      map.setZoom(FOCUS_ZOOM);
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapFocus]);
 
   if (!API_KEY) {
     return (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import TimePicker from "@/components/trips/TimePicker";
+import { currencySymbol } from "@/lib/budget/categories";
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
 const MINUTE_OPTIONS = ["00", "15", "30", "45"];
@@ -23,13 +24,18 @@ const fieldClass =
 
 // "Información del bloque" (diseño 05c): editar dia, hora, descripcion y
 // notas de una actividad del itinerario.
-export default function ActivityModal({ item, date, dateList, details, onCancel, onSave, onRemove }) {
+const PRICE_LEVEL_LABELS = ["Gratis", "$ · económico", "$$ · moderado", "$$$ · caro", "$$$$ · muy caro"];
+
+export default function ActivityModal({ item, date, dateList, details, expense, currency, onCancel, onSave, onRemove }) {
   const [hour, minute] = (item.time || "").split(":");
   const [day, setDay] = useState(date);
   const [time, setTime] = useState(HOUR_OPTIONS.includes(hour) && MINUTE_OPTIONS.includes(minute) ? `${hour}:${minute}` : null);
   const [description, setDescription] = useState(item.description || details?.description || "");
   const [note, setNote] = useState(item.note || "");
   const [extras, setExtras] = useState(null);
+  // Gasto de esta actividad (se guarda en Presupuesto, asociado a la actividad).
+  const [spent, setSpent] = useState(expense?.amount ? String(expense.amount) : "");
+  const [paid, setPaid] = useState(Boolean(expense?.paid));
 
   useEffect(() => {
     let cancelled = false;
@@ -67,14 +73,14 @@ export default function ActivityModal({ item, date, dateList, details, onCancel,
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-950/50 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <div className="flex w-full max-w-[820px] overflow-hidden rounded-3xl bg-white shadow-xl">
+      <div className="my-auto flex w-full max-w-[820px] overflow-hidden rounded-3xl bg-white shadow-xl">
         <div className="hidden w-[38%] shrink-0 bg-gray-100 sm:block">
           {item.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -132,6 +138,44 @@ export default function ActivityModal({ item, date, dateList, details, onCancel,
             />
           </label>
 
+          <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-2 items-end gap-3">
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-gray-900">
+                ¿Cuánto gastaron?
+                <span className="relative flex items-center">
+                  <span className="pointer-events-none absolute left-3 text-sm font-normal text-gray-400">
+                    {currencySymbol(currency)}
+                  </span>
+                  <input
+                    value={spent}
+                    onChange={(event) => setSpent(event.target.value.replace(/[^\d.,]/g, ""))}
+                    inputMode="decimal"
+                    placeholder="0"
+                    className={`${fieldClass} pl-12`}
+                  />
+                </span>
+              </label>
+              <label className="flex h-10 cursor-pointer items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={paid}
+                  onChange={(event) => setPaid(event.target.checked)}
+                  className="h-4 w-4 accent-[#7386f5]"
+                />
+                Ya está pagado
+              </label>
+            </div>
+            {extras?.priceRange || typeof extras?.priceLevel === "number" ? (
+              <p className="text-xs text-gray-500">
+                💡 Precio según Google:{" "}
+                <span className="font-medium text-gray-700">
+                  {extras.priceRange || PRICE_LEVEL_LABELS[extras.priceLevel] || ""}
+                </span>
+              </p>
+            ) : null}
+            <p className="text-[11px] text-gray-400">Se suma al presupuesto del viaje, en la sección Gastos.</p>
+          </div>
+
           {status || address || extras?.station ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-gray-50 px-3 py-2 text-xs font-medium text-gray-900">
               {status ? (
@@ -168,6 +212,11 @@ export default function ActivityModal({ item, date, dateList, details, onCancel,
                   time: time || "",
                   note,
                   description,
+                  expense: {
+                    amount: spent,
+                    paid,
+                    changed: spent !== (expense?.amount ? String(expense.amount) : "") || paid !== Boolean(expense?.paid),
+                  },
                 })
               }
               className="rounded-lg bg-[#7386f5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#5f70e0]"
