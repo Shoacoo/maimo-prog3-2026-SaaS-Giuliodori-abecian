@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/firebase/session";
-import { computeDrivingRoute } from "@/lib/places/google";
+import { computeDrivingRoute, getApiKey } from "@/lib/places/google";
 
 // Ruta por carretera entre las paradas del viaje, para dibujarla en el mapa.
-// Usa Routes API (reemplaza al DirectionsService legacy del navegador).
+// Usa Routes API (reemplaza al DirectionsService legacy del navegador). La
+// ruta queda en cache 30 dias (ver computeDrivingRoute).
 // Devuelve { path: [{lat, lng}] } o { path: null } si no hay camino por tierra
 // (el mapa entonces dibuja una linea recta, como antes).
 export async function POST(request) {
@@ -12,8 +13,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
+  if (!getApiKey()) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
@@ -28,7 +28,7 @@ export async function POST(request) {
   }
 
   try {
-    const path = await computeDrivingRoute(points, apiKey);
+    const path = await computeDrivingRoute(points);
     return NextResponse.json({ path });
   } catch (err) {
     return NextResponse.json({ path: null, error: err.message });

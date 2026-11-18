@@ -1,3 +1,4 @@
+import { getApiKey } from "@/lib/places/google";
 import { NextResponse } from "next/server";
 import { getNearbyPlaces } from "@/lib/places/nearby";
 
@@ -10,7 +11,7 @@ export async function GET(request) {
     return NextResponse.json({ error: "Faltan coordenadas validas." }, { status: 400 });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }

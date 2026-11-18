@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { PLACE_ID_RE, firstPhotoUrl, placesRequest, toLatLng } from "@/lib/places/google";
+import { DAY, PLACE_ID_RE, cached, firstPhotoUrl, getApiKey, placesRequest, toLatLng } from "@/lib/places/google";
+
+// Una ciudad no cambia de pais ni de coordenadas: 30 dias.
+const cachedCity = cached(
+  (placeId) => placesRequest(`places/${placeId}`, { fieldMask: "id,displayName,location,addressComponents,photos" }),
+  "city",
+  30 * DAY,
+);
 
 // Datos de una ciudad elegida en el buscador (crear viaje): nombre, pais,
 // coordenadas y foto. Places API (New), mismo formato que antes.
@@ -11,16 +18,12 @@ export async function GET(request) {
     return NextResponse.json({ error: "Falta placeId." }, { status: 400 });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
+  if (!getApiKey()) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
   try {
-    const place = await placesRequest(`places/${placeId}`, {
-      apiKey,
-      fieldMask: "id,displayName,location,addressComponents,photos",
-    });
+    const place = await cachedCity(placeId);
 
     const countryComponent = (place.addressComponents || []).find((component) => component.types?.includes("country"));
     const location = toLatLng(place.location);

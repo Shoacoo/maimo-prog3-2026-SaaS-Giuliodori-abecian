@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import { getPlaceDetails } from "@/lib/places/placeDetails";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { logPlaceEvent } from "@/lib/analytics/placeEvents";
+import { PLACE_ID_RE, getApiKey } from "@/lib/places/google";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const placeId = searchParams.get("placeId");
 
-  if (!placeId) {
+  if (!placeId || !PLACE_ID_RE.test(placeId)) {
     return NextResponse.json({ error: "Falta placeId." }, { status: 400 });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }

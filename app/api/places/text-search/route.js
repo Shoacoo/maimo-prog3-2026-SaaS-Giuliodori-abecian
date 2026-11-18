@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CATEGORY_LABELS } from "@/lib/places/nearby";
-import { circle, distanceKm, firstPhotoUrl, openNow, placesRequest, readLatLng, toLatLng } from "@/lib/places/google";
+import { DAY, cached, circle, compactHours, distanceKm, firstPhotoUrl, getApiKey, openStatus, placesRequest, readLatLng, roundCoord, toLatLng } from "@/lib/places/google";
 
 const FIELDS = [
   "places.id",
@@ -8,9 +8,35 @@ const FIELDS = [
   "places.location",
   "places.types",
   "places.rating",
-  "places.currentOpeningHours.openNow",
+  "places.regularOpeningHours.periods",
+  "places.utcOffsetMinutes",
   "places.photos",
 ].join(",");
+
+// Resultados crudos 1 dia; "abierto ahora" y la distancia se calculan al leer.
+async function textSearchUncached(query, point, type) {
+  const data = await placesRequest("places:searchText", {
+    fieldMask: FIELDS,
+    body: {
+      textQuery: query,
+      pageSize: 6,
+      ...(point ? { locationBias: circle(point.lat, point.lng, 30000) } : {}),
+      ...(type ? { includedType: type } : {}),
+    },
+  });
+  return (data.places || []).slice(0, 6).map((place) => ({
+    id: place.id,
+    displayName: place.displayName,
+    location: place.location,
+    types: place.types,
+    rating: place.rating,
+    periods: compactHours(place.regularOpeningHours),
+    utcOffsetMinutes: place.utcOffsetMinutes,
+    photos: place.photos?.[0] ? [{ name: place.photos[0].name }] : [],
+  }));
+}
+
+const cachedTextSearch = cached(textSearchUncached, "text-search", DAY);
 
 // Buscador del itinerario (diseño 05b): Text Search (Places API New) devuelve
 // foto, rating, tipo y si esta abierto en una sola llamada.
@@ -26,24 +52,18 @@ export async function GET(request) {
     return NextResponse.json({ results: [] });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
+  if (!getApiKey()) {
     return NextResponse.json({ error: "Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en el servidor." }, { status: 500 });
   }
 
   try {
-    const data = await placesRequest("places:searchText", {
-      apiKey,
-      fieldMask: FIELDS,
-      body: {
-        textQuery: query,
-        pageSize: 6,
-        ...(hasLocation ? { locationBias: circle(lat, lng, 30000) } : {}),
-        ...(type ? { includedType: type } : {}),
-      },
-    });
+    const places = await cachedTextSearch(
+      query.toLowerCase().replace(/\s+/g, " "),
+      hasLocation ? { lat: roundCoord(lat), lng: roundCoord(lng) } : null,
+      type,
+    );
 
-    const results = (data.places || []).slice(0, 6).map((place) => {
+    const results = places.map((place) => {
       const location = toLatLng(place.location);
       const knownType = (place.types || []).find((item) => CATEGORY_LABELS[item]);
       return {
@@ -53,14 +73,14 @@ export async function GET(request) {
         lng: location.lng,
         category: knownType ? CATEGORY_LABELS[knownType] : null,
         rating: place.rating ?? null,
-        openNow: openNow(place),
+        openNow: openStatus(place.periods, place.utcOffsetMinutes).openNow,
         distanceKm:
           hasLocation && location.lat !== null ? Math.round(distanceKm({ lat, lng }, location) * 10) / 10 : null,
         image: firstPhotoUrl(place),
       };
     });
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results }, { headers: { "Cache-Control": "private, max-age=600" } });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 502 });
   }
