@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import CityPanel from "@/components/world/CityPanel";
+import TripStatusPanel from "@/components/world/TripStatusPanel";
 
 // WebGL solo existe en el navegador, asi que el globo no se prerenderiza.
 const WorldGlobe = dynamic(() => import("@/components/world/WorldGlobe"), {
@@ -22,18 +23,22 @@ function Stat({ value, label }) {
   );
 }
 
-function LegendDot({ color, label }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
-  );
-}
-
 export default function WorldExplorer({ data }) {
   const [selectedCity, setSelectedCity] = useState(null);
-  const { cities, countries, arcs, stats } = data;
+  const [focus, setFocus] = useState(null);
+  const { cities, countries, arcs, stats, trips = [] } = data;
+
+  function selectCity(city) {
+    setFocus(null);
+    setSelectedCity(city);
+  }
+
+  function focusTrip(trip) {
+    setSelectedCity(null);
+    // Objeto nuevo en cada click para que el globo vuelva a girar aunque se
+    // elija el mismo viaje dos veces.
+    setFocus(trip?.focus ? { ...trip.focus, tripId: trip.id, at: Date.now() } : null);
+  }
 
   return (
     <div className="relative h-[calc(100vh-4rem)] min-h-[480px] overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_50%_40%,#1d3f99_0%,#0b1d4f_65%,#07122f_100%)]">
@@ -42,7 +47,8 @@ export default function WorldExplorer({ data }) {
         countries={countries}
         arcs={arcs}
         selectedCity={selectedCity}
-        onSelectCity={setSelectedCity}
+        onSelectCity={selectCity}
+        focus={focus}
       />
 
       <div
@@ -56,11 +62,9 @@ export default function WorldExplorer({ data }) {
         <Stat value={stats.trips} label="Viajes" />
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10 hidden gap-4 rounded-full bg-white/10 px-4 py-2 text-xs text-white/80 backdrop-blur sm:flex">
-        <LegendDot color="#F5A524" label="Explorando" />
-        <LegendDot color="#7CBE66" label="Visitado" />
-        <LegendDot color="#7386F5" label="Planificado" />
-      </div>
+      {trips.length ? (
+        <TripStatusPanel trips={trips} activeTripId={focus?.tripId} onSelectTrip={focusTrip} onClose={() => setFocus(null)} />
+      ) : null}
 
       {cities.length === 0 ? (
         <div className="absolute inset-x-0 bottom-10 z-10 mx-auto w-fit rounded-2xl bg-white px-5 py-4 text-center shadow-xl">

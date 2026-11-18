@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { after } from "next/server";
+import { getNearbyPlaces } from "@/lib/places/nearby";
 import { getCurrentUser } from "@/lib/firebase/session";
 import { getUserTrip } from "@/lib/trips/trips";
 import { listTripDates } from "@/lib/trips/dates";
@@ -44,6 +46,19 @@ export default async function TripDetailPage({ params }) {
 
   if (!trip) {
     notFound();
+  }
+
+  // Precarga en segundo plano los lugares de cada parada para que
+  // "Lugares para visitar" salga de la cache del servidor al instante.
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (apiKey) {
+    after(() =>
+      Promise.all(
+        trip.destinations.map((destination) =>
+          getNearbyPlaces(destination.lat, destination.lng, apiKey, { limit: true, icons: false }),
+        ),
+      ).catch(() => {}),
+    );
   }
 
   const progress = planningProgress(trip);

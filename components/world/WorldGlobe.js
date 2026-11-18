@@ -17,7 +17,7 @@ const EXPLORING = "#F5A524";
 
 const STATUS_SUFFIX = { exploring: " · explorando ahora", visited: " · visitado", planned: " · planificado" };
 
-export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSelectCity }) {
+export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSelectCity, focus }) {
   const containerRef = useRef(null);
   const globeRef = useRef(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -56,15 +56,22 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
     return () => observer.disconnect();
   }, []);
 
-  // Rotacion suave mientras no hay una ciudad elegida.
+  // Rotacion suave mientras no hay una ciudad ni un viaje elegido.
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe || !size.width) return;
     const controls = globe.controls();
-    controls.autoRotate = !selectedCity;
-    controls.autoRotateSpeed = 0.35;
+    controls.autoRotate = !selectedCity && !focus;
+    controls.autoRotateSpeed = 0.105;
     controls.enableDamping = true;
-  }, [selectedCity, size.width]);
+  }, [selectedCity, focus, size.width]);
+
+  // Al elegir un viaje del listado por estado, el globo gira hasta su pais.
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe || !focus || !size.width) return;
+    globe.pointOfView({ lat: focus.lat, lng: focus.lng, altitude: 1.7 }, 1600);
+  }, [focus, size.width]);
 
   // Al elegir una ciudad, la camara vuela hasta ahi.
   useEffect(() => {
@@ -106,7 +113,13 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
           polygonCapColor={polygonColor}
           polygonSideColor={() => "rgba(20, 61, 166, 0.25)"}
           polygonStrokeColor={() => "rgba(20, 61, 166, 0.35)"}
-          polygonAltitude={(feature) => (countryStatus.has(feature.properties.iso) ? 0.012 : 0.006)}
+          polygonAltitude={(feature) =>
+            focus?.countryCode && feature.properties.iso === focus.countryCode
+              ? 0.03
+              : countryStatus.has(feature.properties.iso)
+                ? 0.012
+                : 0.006
+          }
           polygonsTransitionDuration={200}
           polygonLabel={(feature) => {
             const status = countryStatus.get(feature.properties.iso);

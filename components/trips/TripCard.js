@@ -2,16 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatDateRange } from "@/lib/trips/dates";
 import DeleteTripButton from "@/components/trips/DeleteTripButton";
-
-const TOTAL_ACTIVITIES = 10;
-
-// Placeholder until trips have a real activities checklist - deterministic per
-// trip (not random) so it doesn't jump around on every render, and never 0 so
-// the bar always shows some fill.
-function placeholderActivities(id) {
-  const hash = [...String(id)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return (hash % TOTAL_ACTIVITIES) + 1;
-}
+import { planningProgress } from "@/lib/trips/progress";
 
 function tripStats(trip) {
   const items = Object.values(trip.itinerary || {}).flat();
@@ -28,8 +19,10 @@ function tripStats(trip) {
 export default function TripCard({ trip, ownerName }) {
   const shared = trip.role === "editor";
   const cover = trip.destinations[0]?.image;
-  const completed = placeholderActivities(trip.id);
-  const percent = Math.round((completed / TOTAL_ACTIVITIES) * 100);
+  // Misma meta que la tarjeta de planificacion del viaje: una actividad por
+  // dia mas una por parada, contando lo que el usuario agrego al itinerario.
+  const progress = planningProgress(trip);
+  const { percent } = progress;
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md transition hover:shadow-lg">
@@ -57,7 +50,7 @@ export default function TripCard({ trip, ownerName }) {
 
           <div className="mt-3 flex items-center justify-between text-xs font-medium text-gray-500">
             <span>
-              {completed}/{TOTAL_ACTIVITIES} Actividades
+              {progress.activities}/{progress.target} Actividades
             </span>
             <span>{percent}%</span>
           </div>

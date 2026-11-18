@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AddToItineraryButton from "@/components/trips/AddToItineraryButton";
+import FavoriteButton from "@/components/trips/FavoriteButton";
 
 export default function FavoritesSection({ tripId, favorites, inItinerary, dateList }) {
   return (
@@ -24,11 +25,12 @@ export default function FavoritesSection({ tripId, favorites, inItinerary, dateL
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           {favorites.slice(0, 4).map((place) => (
             <div key={place.placeId} className="flex flex-col rounded-[14px] bg-white shadow-sm">
-              <div className="h-[110px] w-full overflow-hidden rounded-t-[14px] bg-gray-100">
+              <div className="relative h-[110px] w-full overflow-hidden rounded-t-[14px] bg-gray-100">
                 {place.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={place.image} alt={place.name} className="h-full w-full object-cover" />
+                  <img src={place.image} alt={place.name} loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
+                <FavoriteButton place={place} size="sm" className="absolute right-2 top-2" />
               </div>
               <div className="flex flex-col items-start gap-1 px-3 pb-3 pt-2.5">
                 <p className="w-full truncate text-sm font-semibold text-gray-900">{place.name}</p>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import AddToItineraryButton from "@/components/trips/AddToItineraryButton";
 import { toggleFavoritePlace } from "@/app/dashboard/trips/actions";
+import { useTripPlan } from "@/components/trips/TripPlanProvider";
 
 const TABS = [
   { id: "overview", label: "Vista general" },
@@ -253,7 +254,12 @@ export default function PlaceSheet({
   city,
 }) {
   const mapsUrl = `https://www.google.com/maps/place/?q=place_id:${place.id}`;
-  const [favorite, setFavorite] = useState(favoriteIds.includes(place.id));
+  const plan = useTripPlan();
+  // Dentro de un viaje se usa el estado de favoritos compartido (asi el
+  // corazon de la ficha y el de las tarjetas siempre coinciden).
+  const sharedFavorites = plan?.tripId === tripId && plan?.toggleFavorite ? plan : null;
+  const [localFavorite, setFavorite] = useState(favoriteIds.includes(place.id));
+  const favorite = sharedFavorites ? sharedFavorites.isFavorite(place.id) : localFavorite;
   const [, startTransition] = useTransition();
 
   const rating = details?.rating ?? place.rating;
@@ -273,6 +279,10 @@ export default function PlaceSheet({
   const todayHours = details?.weekdayText?.[todayIndex()] ? parseWeekday(details.weekdayText[todayIndex()]).hours : null;
 
   function handleFavorite() {
+    if (sharedFavorites) {
+      sharedFavorites.toggleFavorite({ ...itineraryPlace, city });
+      return;
+    }
     const previous = favorite;
     setFavorite(!previous);
     startTransition(async () => {
@@ -399,7 +409,8 @@ export default function PlaceSheet({
                           : "border-gray-200 text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      {favorite ? "♥ En favoritos" : "♡ Favoritos"}
+                      <span className={favorite ? "text-rose-500" : ""}>{favorite ? "♥" : "♡"}</span>{" "}
+                      {favorite ? "En favoritos" : "Favoritos"}
                     </button>
                   </div>
                 ) : null}

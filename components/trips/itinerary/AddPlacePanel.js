@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import FavoriteButton from "@/components/trips/FavoriteButton";
 
 const FILTERS = [
   { id: "all", label: "Todos" },
@@ -26,7 +27,7 @@ function SearchIcon() {
   );
 }
 
-function Row({ place, meta, added, onAdd }) {
+function Row({ place, meta, added, onAdd, cityName }) {
   return (
     <div className={`flex items-center gap-3 rounded-lg px-1.5 py-2 ${added ? "" : "hover:bg-gray-50"}`}>
       <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
@@ -39,6 +40,7 @@ function Row({ place, meta, added, onAdd }) {
         <p className="truncate text-sm font-semibold text-gray-900">{place.name}</p>
         <p className="truncate text-[11px] text-gray-500">{meta}</p>
       </div>
+      <FavoriteButton place={{ ...place, city: place.city || cityName || null }} size="sm" className="shadow-none ring-1 ring-gray-200" />
       {added ? (
         <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
           ✓ Agregado
@@ -215,6 +217,7 @@ export default function AddPlacePanel({ date, city, favorites, dayItems, onAdd, 
                     <Status openNow={place.openNow} />
                   </>
                 }
+                cityName={city?.name}
                 onAdd={() => onAdd(place)}
               />
             ))}

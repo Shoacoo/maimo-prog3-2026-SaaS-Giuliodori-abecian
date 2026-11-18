@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getFlagUrl } from "@/lib/countries/flags";
 import AddToItineraryButton from "@/components/trips/AddToItineraryButton";
+import FavoriteButton from "@/components/trips/FavoriteButton";
 
 const SCROLLBAR_CLASSES =
   "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#7386f5]/40";
@@ -99,10 +100,17 @@ function PlaceCard({ place, description, className = "", recommended = false }) 
       <div className="relative h-36 w-full shrink-0">
         {place.image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={place.image} alt={place.name} className="h-full w-full object-cover" />
+          <img
+            src={place.image}
+            alt={place.name}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full bg-gray-100 object-cover"
+          />
         ) : (
           <div className="h-full w-full bg-gray-100" />
         )}
+        <FavoriteButton place={place} className="absolute right-2 top-2" />
         {recommended ? (
           <span
             title="Recomendado por Triphy"
