@@ -18,10 +18,11 @@ import {
 
 // Validated categorical palette (dataviz skill, references/palette.md) - fixed
 // order, never cycled/reassigned by filtering.
-const BLUE = "#2a78d6";
-const ORANGE = "#eb6834";
-const AQUA = "#1baf7a";
-const CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+// Paleta de Triphy (celeste del logo, verde, naranja, azul, terracota, arena).
+const BLUE = "#7386F5";
+const ORANGE = "#F5A524";
+const AQUA = "#7CBE66";
+const CATEGORICAL = ["#7386F5", "#7CBE66", "#F5A524", "#143DA6", "#9E5941", "#C9B49A", "#e87ba4", "#4a3aa7"];
 const OTHER_GRAY = "#898781";
 
 const GRID_COLOR = "#e1e0d9";
@@ -33,7 +34,7 @@ const tickStyle = { fontSize: 12, fill: MUTED_TEXT };
 
 function ChartCard({ title, subtitle, children, legend }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-md">
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
@@ -62,7 +63,7 @@ function TooltipBox({ active, payload, label, formatter }) {
 
 export function TopPlacesChart({ data }) {
   return (
-    <ChartCard title="Lugares mas buscados" subtitle="Top 10 - ultimos 30 dias">
+    <ChartCard title="Lugares más buscados" subtitle="Top 10 · últimos 30 días">
       {data.length ? (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ left: 12, right: 24, top: 4, bottom: 4 }}>
@@ -81,7 +82,7 @@ export function TopPlacesChart({ data }) {
           </BarChart>
         </ResponsiveContainer>
       ) : (
-        <EmptyState text="Todavia no hay lugares vistos registrados." />
+        <EmptyState text="Todavía no hay lugares vistos registrados." />
       )}
     </ChartCard>
   );
@@ -91,7 +92,7 @@ export function ActivityChart({ data }) {
   const hasData = data.some((d) => d.count > 0);
 
   return (
-    <ChartCard title="Actividad de busqueda" subtitle="Eventos por dia - ultimos 30 dias">
+    <ChartCard title="Actividad de búsqueda" subtitle="Eventos por día · últimos 30 días">
       {hasData ? (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ left: -12, right: 12, top: 8, bottom: 4 }}>
@@ -110,20 +111,26 @@ export function ActivityChart({ data }) {
           </AreaChart>
         </ResponsiveContainer>
       ) : (
-        <EmptyState text="Todavia no hay actividad registrada en los ultimos 30 dias." />
+        <EmptyState text="Todavía no hay actividad registrada en los últimos 30 días." />
       )}
     </ChartCard>
   );
 }
 
 export function CategoriesChart({ data }) {
-  const top = data.slice(0, 7);
-  const rest = data.slice(7).reduce((sum, d) => sum + d.count, 0);
+  // Los eventos sin categoria ya vienen agrupados como "Otros": se suman a la
+  // porcion "Otros" del final en vez de repetirla (dos claves "Otros"
+  // rompian el grafico y la leyenda).
+  const named = data.filter((d) => d.category !== "Otros");
+  const top = named.slice(0, 7);
+  const rest =
+    named.slice(7).reduce((sum, d) => sum + d.count, 0) +
+    data.filter((d) => d.category === "Otros").reduce((sum, d) => sum + d.count, 0);
   const chartData = rest > 0 ? [...top, { category: "Otros", count: rest }] : top;
 
   return (
     <ChartCard
-      title="Categorias mas populares"
+      title="Categorías más populares"
       subtitle="Por cantidad de eventos"
       legend={
         chartData.length ? (
@@ -158,7 +165,7 @@ export function CategoriesChart({ data }) {
           </PieChart>
         </ResponsiveContainer>
       ) : (
-        <EmptyState text="Todavia no hay categorias con datos." />
+        <EmptyState text="Todavía no hay categorías con datos." />
       )}
     </ChartCard>
   );
@@ -168,7 +175,7 @@ export function TripsPerWeekChart({ data }) {
   const hasData = data.some((d) => d.count > 0);
 
   return (
-    <ChartCard title="Viajes creados por semana" subtitle="Ultimas 8 semanas">
+    <ChartCard title="Viajes creados por semana" subtitle="Últimas 8 semanas">
       {hasData ? (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ left: -12, right: 12, top: 8, bottom: 4 }}>
@@ -186,7 +193,7 @@ export function TripsPerWeekChart({ data }) {
           </BarChart>
         </ResponsiveContainer>
       ) : (
-        <EmptyState text="Todavia no se crearon viajes en este rango." />
+        <EmptyState text="Todavía no se crearon viajes en este rango." />
       )}
     </ChartCard>
   );

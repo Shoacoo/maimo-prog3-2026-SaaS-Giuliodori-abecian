@@ -1,6 +1,7 @@
 import { getTopPlaces, getPlaceStatsTable, countPlaceEvents } from "@/lib/analytics/placeEvents";
 import { TopPlacesChart } from "@/components/admin/AdminCharts";
 import ClearStatsButton from "@/components/admin/ClearStatsButton";
+import PageHeader, { EmptyRow } from "@/components/admin/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -18,43 +19,41 @@ export default async function AdminPlacesPage() {
 
   return (
     <div className="max-w-6xl">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lugares</h1>
-          <p className="mt-1 text-sm text-gray-500">{eventCount} eventos registrados en total.</p>
-        </div>
+      <PageHeader icon="pin" title="Lugares" description={`${eventCount} eventos registrados en total.`}>
         <ClearStatsButton />
-      </div>
+      </PageHeader>
 
       <div className="mt-6">
         <TopPlacesChart data={topPlaces} />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-md">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+            <tr className="border-b border-gray-100 bg-gray-50/70 text-xs uppercase tracking-wide text-gray-400">
               <th className="px-5 py-3 font-medium">Lugar</th>
-              <th className="px-5 py-3 font-medium">Categoria</th>
+              <th className="px-5 py-3 font-medium">Categoría</th>
               <th className="px-5 py-3 font-medium">Vistas</th>
               <th className="px-5 py-3 font-medium">Agregados a itinerario</th>
-              <th className="px-5 py-3 font-medium">Ultima vez visto</th>
+              <th className="px-5 py-3 font-medium">Última vez visto</th>
             </tr>
           </thead>
           <tbody>
             {table.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-sm text-gray-400">
-                  Todavia no hay datos de busqueda registrados.
-                </td>
-              </tr>
+              <EmptyRow colSpan={5} icon="search" text="Todavía no hay datos de búsqueda registrados." />
             ) : (
               table.map((place) => (
-                <tr key={place.placeId} className="border-b border-gray-50 last:border-0">
+                <tr key={place.placeId} className="border-b border-gray-50 transition last:border-0 hover:bg-gray-50/70">
                   <td className="px-5 py-3 font-medium text-gray-900">{place.name}</td>
-                  <td className="px-5 py-3 text-gray-500">{place.category}</td>
-                  <td className="px-5 py-3 text-gray-600">{place.views}</td>
-                  <td className="px-5 py-3 text-gray-600">{place.itineraryAdds}</td>
+                  <td className="px-5 py-3">
+                    {place.category ? (
+                      <span className="rounded-full bg-[#E7D6C2]/60 px-2.5 py-1 text-xs font-medium text-[#7a4a33]">{place.category}</span>
+                    ) : (
+                      <span className="text-gray-300">-</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 font-semibold tabular-nums text-gray-700">{place.views}</td>
+                  <td className="px-5 py-3 font-semibold tabular-nums text-[#4f8a3c]">{place.itineraryAdds}</td>
                   <td className="px-5 py-3 text-gray-500">{formatDate(place.lastSeen)}</td>
                 </tr>
               ))
