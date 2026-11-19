@@ -18,7 +18,7 @@ function tripStats(trip) {
 
 // En viajes compartidos (role "editor") se muestra de quién es y no se puede
 // borrar: eso queda solo para el dueño.
-export default function TripCard({ trip, ownerName }) {
+export default function TripCard({ trip, ownerName, priority = false }) {
   const shared = trip.role === "editor";
   const cover = trip.destinations[0]?.image;
   // Misma meta que la tarjeta de planificacion del viaje: una actividad por
@@ -31,7 +31,16 @@ export default function TripCard({ trip, ownerName }) {
       <Link href={`/dashboard/trips/${trip.id}`} className="block">
         <div className="relative h-40 w-full bg-gray-100">
           {cover ? (
-            <Image src={cover} alt={trip.name} fill sizes="320px" className="object-cover" />
+            <Image
+              src={cover}
+              alt={trip.name}
+              fill
+              sizes="320px"
+              className="object-cover"
+              // Las primeras tarjetas se ven sin scroll: se cargan enseguida.
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+            />
           ) : null}
           {shared ? (
             <span className="absolute left-3 top-3 inline-flex max-w-[calc(100%-24px)] items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#7386f5] shadow">

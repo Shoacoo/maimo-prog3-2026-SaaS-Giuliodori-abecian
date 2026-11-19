@@ -75,8 +75,8 @@ export default async function TripsPage() {
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} ownerName={owners[trip.userId]?.name} />
+          {trips.map((trip, index) => (
+            <TripCard key={trip.id} trip={trip} ownerName={owners[trip.userId]?.name} priority={index < 3} />
           ))}
 
           <Link
