@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Globe from "react-globe.gl";
 import { MeshPhongMaterial } from "three";
 
-// Paleta del Figma de Triphy.
-const OCEAN = "#143DA6";
-const LAND = "#E7D6C2";
+// Paleta del Figma de Triphy. La superficie es una foto real de la Tierra
+// (NASA Blue Marble de dia, Black Marble de noche, dominio publico); encima
+// solo se pintan, semitransparentes, los paises que tienen viajes.
+const TEXTURES = { day: "/earth-day.jpg", night: "/earth-night.jpg" };
 const VISITED = "#7CBE66";
 // Planificado: el celeste del logo de Triphy.
 const PLANNED = "#7386F5";
@@ -14,10 +15,16 @@ const PLANNED = "#7386F5";
 const SELECTED = "#111827";
 // Viaje en curso: dorado, para diferenciarlo de lo ya visitado (verde).
 const EXPLORING = "#F5A524";
+const STATUS_COLOR = { exploring: EXPLORING, visited: VISITED, planned: PLANNED };
+
+function withAlpha(hex, alpha) {
+  const value = parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
 
 const STATUS_SUFFIX = { exploring: " · explorando ahora", visited: " · visitado", planned: " · planificado" };
 
-export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSelectCity, focus }) {
+export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSelectCity, focus, theme = "day" }) {
   const containerRef = useRef(null);
   const globeRef = useRef(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -30,7 +37,15 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
     return map;
   }, [countries]);
 
-  const globeMaterial = useMemo(() => new MeshPhongMaterial({ color: OCEAN, shininess: 8 }), []);
+  const night = theme === "night";
+  // Blanco para no teñir la foto; de noche sin brillo, asi las luces de las
+  // ciudades se ven parejas.
+  const globeMaterial = useMemo(() => new MeshPhongMaterial({ color: "#ffffff", shininess: 6 }), []);
+
+  useEffect(() => {
+    globeMaterial.shininess = night ? 0 : 6;
+    globeMaterial.needsUpdate = true;
+  }, [globeMaterial, night]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,12 +103,13 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
     globe.pointOfView(first ? { lat: first.lat, lng: first.lng, altitude: 2.2 } : { altitude: 2.4 }, 0);
   }
 
+  // Paises sin viajes: transparentes (solo un borde sutil) para ver la
+  // Tierra real. Con viajes: su color con transparencia, sobre la foto.
   function polygonColor(feature) {
     const status = countryStatus.get(feature.properties.iso);
-    if (status === "exploring") return EXPLORING;
-    if (status === "visited") return VISITED;
-    if (status === "planned") return PLANNED;
-    return feature === hoverCountry ? "#F3E9DD" : LAND;
+    const hovered = feature === hoverCountry;
+    if (status) return withAlpha(STATUS_COLOR[status], hovered ? 0.75 : 0.55);
+    return hovered ? "rgba(255, 255, 255, 0.14)" : "rgba(0, 0, 0, 0)";
   }
 
   return (
@@ -105,20 +121,27 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
           height={size.height}
           backgroundColor="rgba(0,0,0,0)"
           globeMaterial={globeMaterial}
+          globeImageUrl={night ? TEXTURES.night : TEXTURES.day}
           showAtmosphere
-          atmosphereColor="#9cc0ff"
-          atmosphereAltitude={0.18}
+          atmosphereColor={night ? "#3b4f8f" : "#9cc0ff"}
+          atmosphereAltitude={night ? 0.12 : 0.16}
           onGlobeReady={handleReady}
           polygonsData={geo}
           polygonCapColor={polygonColor}
-          polygonSideColor={() => "rgba(20, 61, 166, 0.25)"}
-          polygonStrokeColor={() => "rgba(20, 61, 166, 0.35)"}
+          polygonSideColor={() => "rgba(0, 0, 0, 0)"}
+          polygonStrokeColor={(feature) =>
+            countryStatus.has(feature.properties.iso)
+              ? "rgba(255, 255, 255, 0.55)"
+              : night
+                ? "rgba(255, 255, 255, 0.12)"
+                : "rgba(255, 255, 255, 0.22)"
+          }
           polygonAltitude={(feature) =>
             focus?.countryCode && feature.properties.iso === focus.countryCode
               ? 0.03
               : countryStatus.has(feature.properties.iso)
-                ? 0.012
-                : 0.006
+                ? 0.01
+                : 0.004
           }
           polygonsTransitionDuration={200}
           polygonLabel={(feature) => {

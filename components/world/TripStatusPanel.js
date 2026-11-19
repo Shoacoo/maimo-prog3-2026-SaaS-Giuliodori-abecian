@@ -7,10 +7,31 @@ import { formatDateRange } from "@/lib/trips/dates";
 
 // Estados de viaje del globo (mismos colores que los paises y las rutas).
 const STATUSES = [
-  { id: "en-curso", label: "Explorando", color: "#F5A524", empty: "No tenes viajes en curso" },
-  { id: "realizado", label: "Visitado", color: "#7CBE66", empty: "Todavia no terminaste ningun viaje" },
-  { id: "planificado", label: "Planificado", color: "#7386F5", empty: "No tenes viajes planificados" },
+  { id: "en-curso", label: "Explorando", hint: "Viajes en curso", color: "#F5A524", icon: "compass", empty: "No tenes viajes en curso" },
+  { id: "realizado", label: "Visitado", hint: "Viajes terminados", color: "#7CBE66", icon: "check", empty: "Todavia no terminaste ningun viaje" },
+  { id: "planificado", label: "Planificado", hint: "Proximos viajes", color: "#7386F5", icon: "calendar", empty: "No tenes viajes planificados" },
 ];
+
+function StatusIcon({ name }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      {name === "compass" ? (
+        <>
+          <circle cx="12" cy="12" r="9" {...common} />
+          <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" {...common} />
+        </>
+      ) : name === "check" ? (
+        <path d="m5 12.5 4.5 4.5L19 7.5" {...common} />
+      ) : (
+        <>
+          <rect x="4" y="5" width="16" height="15" rx="2" {...common} />
+          <path d="M4 10h16M9 3v4M15 3v4" {...common} />
+        </>
+      )}
+    </svg>
+  );
+}
 
 function TripItem({ trip, active, color, onSelect }) {
   return (
@@ -80,7 +101,58 @@ export default function TripStatusPanel({ trips, activeTripId, onSelectTrip, onC
   }
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-2rem)] flex-col items-start gap-2 sm:max-w-sm">
+    <div className="absolute bottom-5 left-5 z-10 flex max-w-[calc(100%-5rem)] flex-col-reverse items-start gap-2 sm:flex-row sm:items-end">
+      {/* Leyenda de estados en columna, con el lenguaje del listado
+          (tarjeta blanca). Cada fila abre el listado: a la derecha en
+          pantallas grandes y arriba en el celular. */}
+      <div className="w-[min(15rem,calc(100vw-6rem))] rounded-2xl bg-white p-1.5 shadow-2xl">
+        <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Mis viajes</p>
+        <ul className="grid gap-1">
+          {STATUSES.map((status) => {
+            const count = trips.filter((trip) => trip.status === status.id).length;
+            const open = status.id === openStatus;
+            return (
+              <li key={status.id}>
+                <button
+                  type="button"
+                  onClick={() => toggle(status.id)}
+                  aria-expanded={open}
+                  className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-2.5 py-2 text-left transition hover:bg-gray-50"
+                  style={open ? { backgroundColor: `${status.color}1f` } : undefined}
+                >
+                  <span
+                    className="absolute inset-y-2 left-0 w-1 rounded-full transition"
+                    style={{ backgroundColor: status.color, opacity: open ? 1 : 0 }}
+                  />
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition group-hover:scale-105"
+                    style={{ backgroundColor: open ? status.color : `${status.color}26`, color: open ? "#fff" : status.color }}
+                  >
+                    <StatusIcon name={status.icon} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-gray-900">{status.label}</span>
+                    <span className="block truncate text-[11px] text-gray-500">{status.hint}</span>
+                  </span>
+                  <span className="text-xl font-bold tabular-nums text-gray-900">{count}</span>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`shrink-0 text-gray-400 transition ${open ? "-rotate-90 sm:rotate-0 sm:translate-x-0.5" : "group-hover:translate-x-0.5"}`}
+                    style={open ? { color: status.color } : undefined}
+                  >
+                    <path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
       {current ? (
         <div className="w-[min(22rem,calc(100vw-4rem))] overflow-hidden rounded-2xl bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
@@ -118,39 +190,6 @@ export default function TripStatusPanel({ trips, activeTripId, onSelectTrip, onC
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-1.5 rounded-full bg-white/10 p-1 text-xs text-white backdrop-blur">
-        {STATUSES.map((status) => {
-          const count = trips.filter((trip) => trip.status === status.id).length;
-          const open = status.id === openStatus;
-          return (
-            <button
-              key={status.id}
-              type="button"
-              onClick={() => toggle(status.id)}
-              aria-expanded={open}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium transition ${
-                open ? "bg-white text-gray-900" : "text-white/85 hover:bg-white/15"
-              }`}
-            >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: status.color }} />
-              {status.label}
-              <span className={`rounded-full px-1.5 text-[11px] ${open ? "bg-gray-100 text-gray-600" : "bg-white/15"}`}>
-                {count}
-              </span>
-              <svg
-                viewBox="0 0 24 24"
-                width="12"
-                height="12"
-                fill="none"
-                aria-hidden="true"
-                className={`transition ${open ? "rotate-180" : ""}`}
-              >
-                <path d="m6 15 6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
