@@ -423,7 +423,7 @@ export default function NotesView({ tripId, notes, noteFolders }) {
       {error ? <p className="mb-4 text-sm text-red-500">{error}</p> : null}
 
       <h2 className="text-lg font-bold text-gray-900">Carpetas recientes</h2>
-      <div className="mt-4 grid grid-cols-2 items-start gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 items-start gap-4 @2xl:grid-cols-3 @4xl:grid-cols-4 @6xl:grid-cols-5">
         {localFolders.map((folder) => {
           const colors = colorInfo(folder.color);
           const active = activeFolderId === folder.id;

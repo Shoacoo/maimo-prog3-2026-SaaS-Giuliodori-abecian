@@ -4,7 +4,7 @@ import FavoriteButton from "@/components/trips/FavoriteButton";
 
 export default function FavoritesSection({ tripId, favorites, inItinerary, dateList }) {
   return (
-    <section className="flex w-full flex-col gap-4">
+    <section className="@container flex w-full flex-col gap-4">
       <div className="flex items-center gap-2">
         <h2 className="text-xl font-semibold text-gray-900">♡ Favoritos del viaje</h2>
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">{favorites.length}</span>
@@ -22,7 +22,7 @@ export default function FavoritesSection({ tripId, favorites, inItinerary, dateL
           Tocá ♡ en la ficha de un lugar para guardarlo acá.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 @2xl:grid-cols-4">
           {favorites.slice(0, 4).map((place) => (
             <div key={place.placeId} className="flex flex-col rounded-[14px] bg-white shadow-sm">
               <div className="relative h-[110px] w-full overflow-hidden rounded-t-[14px] bg-gray-100">

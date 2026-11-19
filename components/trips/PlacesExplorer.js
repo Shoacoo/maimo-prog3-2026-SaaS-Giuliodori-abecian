@@ -358,7 +358,7 @@ export default function PlacesExplorer({ destinations, places, categories, favor
 
         {filteredPlaces.length > 0 ? (
           <>
-            <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-5 @2xl:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4">
               {visiblePlaces.map((place) => (
                 <PlaceCard
                   key={place.id}

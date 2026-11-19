@@ -41,7 +41,7 @@ export default async function TripBudgetPage({ params }) {
       <div className="flex">
         <SetTripPill id={trip.id} name={trip.name} />
 
-        <div className="min-w-0 flex-1">
+        <div className="@container min-w-0 flex-1">
           <TripHero trip={trip} subtitle="Definí cuánto querés gastar y anotá lo que van gastando" />
 
           <div className="px-8 py-10 pb-32 sm:px-12">

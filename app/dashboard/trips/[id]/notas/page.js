@@ -29,7 +29,7 @@ export default async function TripNotesPage({ params }) {
       <div className="flex">
         <SetTripPill id={trip.id} name={trip.name} />
 
-        <div className="min-w-0 flex-1">
+        <div className="@container min-w-0 flex-1">
           <TripHero trip={trip} subtitle="Organiza tus ideas y apuntes del viaje" />
 
           <div className="px-8 py-10 pb-32 sm:px-12">

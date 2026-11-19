@@ -90,7 +90,7 @@ export default async function TripPlacesPage({ params, searchParams }) {
       <div className="flex">
         <SetTripPill id={trip.id} name={trip.name} />
 
-        <div className="min-w-0 flex-1">
+        <div className="@container min-w-0 flex-1">
           <TripHero trip={trip} subtitle="Descubri nuevos lugares y agrega los mejores a tu viaje!" />
 
           <div className="px-8 py-10 pb-32 sm:px-12">

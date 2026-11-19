@@ -1,10 +1,11 @@
 import GoogleMap from "@/components/map/GoogleMap";
+import CollapsibleMapPanel from "@/components/trips/CollapsibleMapPanel";
 import { getNextDestination } from "@/lib/trips/nextDestination";
 import { listTripDates } from "@/lib/trips/dates";
 
 export default function TripMapPanel({ trip }) {
   return (
-    <div className="sticky top-0 hidden h-screen w-96 shrink-0 border-l border-gray-100 lg:block xl:w-120">
+    <CollapsibleMapPanel>
       <GoogleMap
         className="h-full w-full"
         zoom={4}
@@ -21,6 +22,6 @@ export default function TripMapPanel({ trip }) {
           label: destination.name,
         }))}
       />
-    </div>
+    </CollapsibleMapPanel>
   );
 }

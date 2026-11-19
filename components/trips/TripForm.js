@@ -25,7 +25,7 @@ import DateRangeField, { nightsBetween } from "@/components/trips/new/DateRangeF
 import TripCreatedModal from "@/components/trips/new/TripCreatedModal";
 import { flagEmoji, getFlagUrl } from "@/lib/countries/flags";
 
-const inputClass =
+export const inputClass =
   "h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-base text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7386f5] focus:bg-white focus:ring-1 focus:ring-[#7386f5]";
 
 function DestinationCard({ city, index, isLast, onRemove, dragging }) {
@@ -74,7 +74,7 @@ function DestinationCard({ city, index, isLast, onRemove, dragging }) {
   );
 }
 
-function SortableDestination(props) {
+export function SortableDestination(props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: props.city.placeId,
   });
@@ -110,9 +110,12 @@ function PreviewCard({ name, destinations, companions, startDate, endDate }) {
   const flag = destinations[0] ? flagEmoji(destinations[0].countryCode, destinations[0].country) : "";
 
   return (
-    <div className="w-full overflow-hidden rounded-[20px] bg-white shadow-md lg:sticky lg:top-8 lg:w-[520px] lg:shrink-0">
-      <GoogleMap className="h-[300px] w-full" rounded={false} markers={markers} markerStyle="pill" />
-      <div className="flex flex-col gap-3.5 px-6 pb-6 pt-5">
+    // En el celular es una tarjeta debajo del formulario. En pantallas grandes
+    // es el panel derecho a toda la altura (como el mapa de las pantallas del
+    // viaje): el mapa ocupa todo el alto y el resumen queda abajo.
+    <aside className="mx-8 mb-32 overflow-hidden rounded-[20px] bg-white shadow-md sm:mx-12 lg:sticky lg:top-0 lg:m-0 lg:flex lg:h-screen lg:w-96 lg:shrink-0 lg:flex-col lg:rounded-none lg:border-l lg:border-gray-100 lg:shadow-none xl:w-120">
+      <GoogleMap className="h-[300px] w-full lg:h-auto lg:min-h-0 lg:flex-1" rounded={false} markers={markers} markerStyle="pill" />
+      <div className="flex shrink-0 flex-col gap-3.5 px-6 pb-6 pt-5 lg:border-t lg:border-gray-100">
         <p className="text-[13px] font-semibold text-gray-500">Vista previa del viaje</p>
         <p className={`truncate text-2xl font-bold ${name.trim() ? "text-gray-900" : "text-gray-300"}`}>
           {name.trim() || "Nombre del viaje"} {flag}
@@ -130,11 +133,11 @@ function PreviewCard({ name, destinations, companions, startDate, endDate }) {
           </p>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
 
-export default function TripForm({ action }) {
+export default function TripForm({ action, header = null }) {
   const dndId = useId();
   const [name, setName] = useState("");
   const [destinations, setDestinations] = useState([]);
@@ -204,8 +207,10 @@ export default function TripForm({ action }) {
 
   return (
     <>
-      <div className="flex flex-col gap-12 lg:flex-row lg:items-start">
-        <form onSubmit={handleSubmit} className="w-full max-w-[672px]">
+      <div className="flex flex-col lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1 px-8 py-10 sm:px-12 lg:pb-32">
+          {header}
+        <form onSubmit={handleSubmit} className="mt-8 w-full max-w-[672px]">
           <input type="hidden" name="destinations" value={JSON.stringify(destinations)} readOnly />
           <input type="hidden" name="companions" value={JSON.stringify(companions)} readOnly />
 
@@ -314,6 +319,7 @@ export default function TripForm({ action }) {
             {pending ? "Creando viaje..." : "Crear viaje"}
           </button>
         </form>
+        </div>
 
         <PreviewCard
           name={name}
