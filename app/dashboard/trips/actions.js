@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/firebase/session";
 import { sendTripInvites } from "@/lib/email/tripInvite";
 import {
   createUserTrip,
+  updateTripDetails,
   deleteUserTrip,
   updateTripDestinationsOrder,
   addItineraryItem,
@@ -121,11 +122,8 @@ async function resolveCompanions(user, list) {
   return Promise.all(list.filter((item) => item.email !== ownEmail).map(resolveCompanion));
 }
 
-function parseTripForm(formData) {
-  const name = String(formData.get("name") || "").trim();
-  const startDate = String(formData.get("startDate") || "");
-  const endDate = String(formData.get("endDate") || "");
-  const destinations = parseDestinations(formData.get("destinations"));
+// Validacion comun a crear y editar un viaje.
+function validateTripFields({ name, startDate, endDate, destinations }) {
 
   if (!name) {
     throw new Error("El nombre del viaje es obligatorio.");
@@ -143,7 +141,24 @@ function parseTripForm(formData) {
     throw new Error("La fecha de fin no puede ser anterior a la de inicio.");
   }
 
-  return { name, startDate, endDate, destinations, companions: parseCompanions(formData.get("companions")) };
+  return { name: name.slice(0, 120), startDate, endDate, destinations };
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function cleanDateValue(value) {
+  const text = String(value || "");
+  return DATE_RE.test(text) ? text : "";
+}
+
+function parseTripForm(formData) {
+  const fields = validateTripFields({
+    name: String(formData.get("name") || "").trim(),
+    startDate: cleanDateValue(formData.get("startDate")),
+    endDate: cleanDateValue(formData.get("endDate")),
+    destinations: parseDestinations(formData.get("destinations")),
+  });
+  return { ...fields, companions: parseCompanions(formData.get("companions")) };
 }
 
 export async function toggleFavoritePlace(tripId, place) {
@@ -196,6 +211,30 @@ export async function createTrip(formData) {
   // Invitaciones por email a los compañeros (si falla el envio, el viaje igual queda creado).
   const invites = await inviteCompanions(user, { ...trip, id }, trip.companions);
   return { id, invites };
+}
+
+export async function updateTrip(tripId, input) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  try {
+    const fields = validateTripFields({
+      name: String(input?.name || "").trim(),
+      startDate: cleanDateValue(input?.startDate),
+      endDate: cleanDateValue(input?.endDate),
+      destinations: sanitizeDestinations(input?.destinations),
+    });
+    await updateTripDetails(user.uid, String(tripId), fields);
+  } catch (error) {
+    return { error: error.message === "Trip not found." ? "No tenés permiso para editar este viaje." : error.message };
+  }
+
+  revalidatePath("/dashboard/trips");
+  revalidatePath(`/dashboard/trips/${tripId}`, "layout");
+  revalidatePath("/dashboard/mundo");
+  return { ok: true };
 }
 
 export async function deleteTrip(tripId) {

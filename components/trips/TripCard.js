@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatDateRange } from "@/lib/trips/dates";
 import DeleteTripButton from "@/components/trips/DeleteTripButton";
+import EditTripButton from "@/components/trips/EditTripButton";
+import { editableTrip } from "@/lib/trips/editImpact";
 import { planningProgress } from "@/lib/trips/progress";
 
 function tripStats(trip) {
@@ -60,6 +62,8 @@ export default function TripCard({ trip, ownerName }) {
         </div>
       </Link>
 
+      {/* Editar: dueño y compañeros (los dos pueden editar el viaje). Borrar: solo el dueño. */}
+      <EditTripButton trip={editableTrip(trip)} className={`absolute top-3 ${shared ? "right-3" : "right-13"}`} />
       {shared ? null : <DeleteTripButton tripId={trip.id} tripName={trip.name} stats={tripStats(trip)} />}
     </div>
   );

@@ -2,6 +2,8 @@ import Image from "next/image";
 import { totalTripDays, formatDateRange } from "@/lib/trips/dates";
 import { getFlagUrl } from "@/lib/countries/flags";
 import BackLink from "@/components/dashboard/BackLink";
+import EditTripButton from "@/components/trips/EditTripButton";
+import { editableTrip } from "@/lib/trips/editImpact";
 
 export default function TripHero({ trip, subtitle }) {
   const heroImage = trip.destinations[0]?.image;
@@ -27,6 +29,10 @@ export default function TripHero({ trip, subtitle }) {
 
       <div className="absolute left-6 top-6 sm:left-8 sm:top-8">
         <BackLink href="/dashboard/trips" variant="overlay" />
+      </div>
+
+      <div className="absolute right-6 top-6 sm:right-8 sm:top-8">
+        <EditTripButton trip={editableTrip(trip)} variant="hero" />
       </div>
 
       <div className="absolute bottom-6 left-8 right-8 sm:bottom-8 sm:left-12">
