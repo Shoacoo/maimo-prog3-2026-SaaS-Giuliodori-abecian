@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getFlagUrl } from "@/lib/countries/flags";
 import AddToItineraryButton from "@/components/trips/AddToItineraryButton";
 import FavoriteButton from "@/components/trips/FavoriteButton";
+import CategoryIcon, { categoryStyle } from "@/components/trips/CategoryIcon";
 
 const SCROLLBAR_CLASSES =
   "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#7386f5]/40";
@@ -203,6 +204,10 @@ export default function PlacesExplorer({ destinations, places, categories, favor
   const filteredPlaces = source.filter(
     (place) => (!activeCity || place.cityName === activeCity) && (!activeCategory || place.type === activeCategory),
   );
+  // Cuantos lugares hay de cada categoria (respetando ciudad y favoritos).
+  const categoryCounts = source
+    .filter((place) => !activeCity || place.cityName === activeCity)
+    .reduce((counts, place) => ({ ...counts, [place.type]: (counts[place.type] || 0) + 1 }), {});
   const activeCategoryLabel = categories.find((category) => category.type === activeCategory)?.label;
   const hasFilters = Boolean(activeCity || activeCategory || onlyFavorites);
 
@@ -300,28 +305,52 @@ export default function PlacesExplorer({ destinations, places, categories, favor
 
       <div className="mt-10">
         <h2 className="text-xl font-bold text-gray-900">Categorías</h2>
-        <div className="mt-4 grid max-w-[800px] grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {categories.map((category) => {
-            const active = activeCategory === category.type;
-            return (
-              <button
-                key={category.type}
-                type="button"
-                onClick={() => toggleCategory(category.type)}
-                className={`flex h-12 items-center gap-2 rounded-xl border px-4 text-sm font-medium shadow-sm transition ${
-                  active
-                    ? "border-[#7386f5] bg-[#7386f5] text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-[#7386f5]/40"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-white" : "bg-[#7386f5]/50"}`}
-                  aria-hidden="true"
-                />
-                <span className="truncate">{category.label}</span>
-              </button>
-            );
-          })}
+        {/* Chips con icono, color y cantidad de lugares de cada categoria. Si
+            el espacio es angosto (container query) quedan solo los iconos, con
+            el nombre como tooltip. Las categorias sin lugares van al final. */}
+        <div className="@container mt-4">
+          <div className="flex flex-wrap gap-2">
+            {[...categories]
+              .map((category) => ({ ...category, count: categoryCounts[category.type] || 0 }))
+              .sort((a, b) => (b.count > 0) - (a.count > 0))
+              .map((category) => {
+                const active = activeCategory === category.type;
+                const { color } = categoryStyle(category.type);
+                const empty = category.count === 0;
+                return (
+                  <button
+                    key={category.type}
+                    type="button"
+                    onClick={() => toggleCategory(category.type)}
+                    aria-pressed={active}
+                    aria-label={`${category.label} (${category.count})`}
+                    title={`${category.label} · ${category.count} ${category.count === 1 ? "lugar" : "lugares"}`}
+                    disabled={empty && !active}
+                    className={`group flex h-10 items-center gap-2 rounded-full border pl-1 pr-1 text-sm font-medium transition @2xl:pr-3 ${
+                      active
+                        ? "border-transparent text-white shadow-md"
+                        : "border-gray-200 bg-white text-gray-700 hover:-translate-y-0.5 hover:shadow-sm"
+                    } ${empty && !active ? "cursor-not-allowed opacity-40" : ""}`}
+                    style={active ? { backgroundColor: color } : undefined}
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition"
+                      style={active ? { backgroundColor: "rgba(255,255,255,0.22)", color: "#fff" } : { backgroundColor: `${color}1a`, color }}
+                    >
+                      <CategoryIcon type={category.type} size={16} />
+                    </span>
+                    <span className="hidden whitespace-nowrap @2xl:inline">{category.label}</span>
+                    <span
+                      className={`hidden min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold tabular-nums @2xl:inline ${
+                        active ? "bg-white/25 text-white" : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {category.count}
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
         </div>
 
         {hasFilters ? (
