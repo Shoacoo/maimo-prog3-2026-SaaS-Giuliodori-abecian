@@ -17,6 +17,37 @@ const SELECTED = "#111827";
 const EXPLORING = "#F5A524";
 const STATUS_COLOR = { exploring: EXPLORING, visited: VISITED, planned: PLANNED };
 
+// Centro y tamaño aproximados de un pais (caja que lo contiene), para volar
+// hasta el con una altura acorde: paises grandes se ven de mas lejos.
+function countryView(feature) {
+  let minLat = 90;
+  let maxLat = -90;
+  let minLng = 180;
+  let maxLng = -180;
+  const visit = (coords) => {
+    if (typeof coords[0] === "number") {
+      const [lng, lat] = coords;
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+      return;
+    }
+    coords.forEach(visit);
+  };
+  visit(feature.geometry?.coordinates || []);
+  // Paises que cruzan el antimeridiano (Rusia, Fiyi): caja demasiado ancha.
+  const lngSpan = maxLng - minLng > 180 ? 40 : maxLng - minLng;
+  const span = Math.max(maxLat - minLat, lngSpan);
+  return {
+    lat: (minLat + maxLat) / 2,
+    lng: maxLng - minLng > 180 ? minLng : (minLng + maxLng) / 2,
+    altitude: Math.min(2.2, Math.max(0.35, span / 28)),
+  };
+}
+
+const CITY_ALTITUDE = 0.6;
+
 function withAlpha(hex, alpha) {
   const value = parseInt(hex.slice(1), 16);
   return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
@@ -30,6 +61,11 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [geo, setGeo] = useState([]);
   const [hoverCountry, setHoverCountry] = useState(null);
+  // El usuario toco un pais sin viajes: el globo se queda quieto ahi.
+  const [manualFocus, setManualFocus] = useState(false);
+  // Al tocar un pais con viajes se abre la ficha de su ciudad, pero la camara
+  // queda en el pais (no vuela a la ciudad).
+  const skipCityFlyRef = useRef(false);
 
   const countryStatus = useMemo(() => {
     const map = new Map();
@@ -76,24 +112,50 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
     const globe = globeRef.current;
     if (!globe || !size.width) return;
     const controls = globe.controls();
-    controls.autoRotate = !selectedCity && !focus;
+    controls.autoRotate = !selectedCity && !focus && !manualFocus;
     controls.autoRotateSpeed = 0.105;
     controls.enableDamping = true;
-  }, [selectedCity, focus, size.width]);
+  }, [selectedCity, focus, manualFocus, size.width]);
 
   // Al elegir un viaje del listado por estado, el globo gira hasta su pais.
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe || !focus || !size.width) return;
     globe.pointOfView({ lat: focus.lat, lng: focus.lng, altitude: 1.7 }, 1600);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setManualFocus(false);
   }, [focus, size.width]);
 
-  // Al elegir una ciudad, la camara vuela hasta ahi.
+  // Al elegir una ciudad, la camara vuela hasta ahi y se acerca (sin alejarse
+  // si el usuario ya estaba mas cerca).
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe || !selectedCity) return;
-    globe.pointOfView({ lat: selectedCity.lat, lng: selectedCity.lng, altitude: 1.4 }, 1200);
+    if (skipCityFlyRef.current) {
+      skipCityFlyRef.current = false;
+      return;
+    }
+    flyTo({ lat: selectedCity.lat, lng: selectedCity.lng, altitude: CITY_ALTITUDE });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCity]);
+
+  function flyTo({ lat, lng, altitude }) {
+    const globe = globeRef.current;
+    if (!globe) return;
+    const current = globe.pointOfView()?.altitude ?? altitude;
+    globe.pointOfView({ lat, lng, altitude: Math.min(current, altitude) }, 1200);
+  }
+
+  function handleCountryClick(feature) {
+    flyTo(countryView(feature));
+    const city = cities.find((item) => item.countryCode === feature.properties.iso);
+    if (city) {
+      skipCityFlyRef.current = city.key !== selectedCity?.key;
+      onSelectCity(city);
+    } else {
+      setManualFocus(true);
+    }
+  }
 
   // Vista inicial: centrada en la primera ciudad del usuario, si hay.
   function handleReady() {
@@ -150,10 +212,8 @@ export default function WorldGlobe({ cities, countries, arcs, selectedCity, onSe
             return `<div style="padding:4px 8px;border-radius:8px;background:#fff;color:#1f2937;font:500 12px Rubik,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)">${countryName(feature)}${suffix}</div>`;
           }}
           onPolygonHover={setHoverCountry}
-          onPolygonClick={(feature) => {
-            const city = cities.find((item) => item.countryCode === feature.properties.iso);
-            if (city) onSelectCity(city);
-          }}
+          onPolygonClick={handleCountryClick}
+          onGlobeClick={() => setManualFocus(false)}
           arcsData={arcs}
           arcColor={(arc) =>
             arc.status === "planificado"

@@ -241,6 +241,25 @@ function focusIcon(label) {
   };
 }
 
+// Zoom suave al tocar algo en el mapa: centra con panTo y acerca de a un nivel
+// por vez (setZoom de Google salta de golpe). Nunca aleja: si el usuario ya
+// esta mas cerca que el objetivo, solo centra.
+const CITY_ZOOM = 12;
+const PLACE_ZOOM = 16;
+
+function smoothZoomTo(map, position, targetZoom) {
+  map.panTo(position);
+  const step = () => {
+    const current = map.getZoom();
+    if (current >= targetZoom) return;
+    map.setZoom(current + 1);
+    setTimeout(step, 110);
+  };
+  // Se espera un poco a que termine el paneo (si el mapa no se mueve, el
+  // evento "idle" no llega, por eso no se usa).
+  setTimeout(step, 280);
+}
+
 function renderMarkers(map, markers, markersRef, markerStyle = "circle") {
   markersRef.current.forEach((marker) => marker.setMap(null));
   markersRef.current = markers.map((marker, index) =>
@@ -270,6 +289,11 @@ function renderMarkers(map, markers, markersRef, markerStyle = "circle") {
           fontWeight: "700",
         },
       }),
+  );
+
+  // Tocar una parada del viaje acerca el mapa a esa ciudad.
+  markersRef.current.forEach((marker) =>
+    marker.addListener("click", () => smoothZoomTo(map, marker.getPosition(), CITY_ZOOM)),
   );
 
   if (markers.length === 1) {
@@ -388,7 +412,10 @@ async function renderNearbyPlaces(map, markers, poiRef, activeGroupsRef, onSelec
     marker.set("minZoom", minZoom);
     marker.set("group", place.group);
 
-    marker.addListener("click", () => onSelectPlace(place));
+    marker.addListener("click", () => {
+      onSelectPlace(place);
+      smoothZoomTo(map, marker.getPosition(), PLACE_ZOOM);
+    });
 
     return marker;
   });
@@ -690,7 +717,10 @@ export default function GoogleMap({
         zIndex: 1000,
         animation: window.google.maps.Animation.DROP,
       });
-      marker.addListener("click", () => handleSelectPlace(sheetPlace));
+      marker.addListener("click", () => {
+        handleSelectPlace(sheetPlace);
+        smoothZoomTo(map, position, PLACE_ZOOM);
+      });
       focusMarkerRef.current = marker;
 
       map.panTo(position);
