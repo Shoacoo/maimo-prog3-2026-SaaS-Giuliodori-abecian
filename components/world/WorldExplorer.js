@@ -173,7 +173,7 @@ export default function WorldExplorer({ data }) {
         onClick={toggleTheme}
         aria-label={theme === "night" ? "Ver la Tierra de dia" : "Ver la Tierra de noche"}
         title={theme === "night" ? "Ver de dia" : "Ver de noche"}
-        className="absolute bottom-5 right-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-2xl transition hover:text-gray-900"
+        className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-2xl transition hover:text-gray-900"
       >
         {theme === "night" ? <SunIcon /> : <MoonIcon />}
       </button>

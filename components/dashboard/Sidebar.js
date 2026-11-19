@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import UserAvatar from "@/components/profile/UserAvatar";
 import Image from "next/image";
 import { useTripPill } from "@/components/dashboard/TripPillProvider";
 
@@ -62,16 +63,7 @@ function ChevronIcon({ open }) {
   );
 }
 
-function UserIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-      <path d="M4 20c1.6-3.6 5-5.5 8-5.5s6.4 1.9 8 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export default function Sidebar({ userLabel, logoutAction, isAdmin }) {
+export default function Sidebar({ userLabel, avatarUrl, friendRequests = 0, logoutAction, isAdmin }) {
   const [isOpen, setIsOpen] = useState(true);
   const [openSections, setOpenSections] = useState(() =>
     Object.fromEntries(NAV_SECTIONS.map((section) => [section.id, true])),
@@ -179,11 +171,30 @@ export default function Sidebar({ userLabel, logoutAction, isAdmin }) {
             </div>
           ) : null}
 
-          <div className="flex items-center gap-3 border-t border-gray-100 px-4 py-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
-              <UserIcon />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm text-gray-700">Hola, {userLabel}!</span>
+          <div className="flex items-center gap-2 border-t border-gray-100 px-3 py-3">
+            {/* Foto y nombre: llevan a "Mi perfil". */}
+            <Link
+              href="/dashboard/perfil"
+              title="Mi perfil"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1.5 py-1.5 transition hover:bg-gray-50"
+            >
+              <span className="relative">
+                <UserAvatar src={avatarUrl} name={userLabel} size={38} className="ring-[#7386f5]/20" />
+                {friendRequests ? (
+                  <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#F5A524] px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                    {friendRequests}
+                  </span>
+                ) : null}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-gray-900">{userLabel}</span>
+                <span className="block text-xs text-[#7386f5]">
+                  {friendRequests
+                    ? `${friendRequests} ${friendRequests === 1 ? "solicitud de amistad" : "solicitudes de amistad"}`
+                    : "Ver mi perfil"}
+                </span>
+              </span>
+            </Link>
             <form action={logoutAction}>
               <button
                 type="submit"
@@ -194,7 +205,13 @@ export default function Sidebar({ userLabel, logoutAction, isAdmin }) {
             </form>
           </div>
         </>
-      ) : null}
+      ) : (
+        <div className="mt-auto flex justify-center border-t border-gray-100 py-3">
+          <Link href="/dashboard/perfil" title="Mi perfil" aria-label="Mi perfil">
+            <UserAvatar src={avatarUrl} name={userLabel} size={36} />
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }
